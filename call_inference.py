@@ -3,13 +3,13 @@ use open-source lib to achieve analog inference
 """
 import torch
 # Import memtorch----------------------------------------------
-# import memtorch
-# import copy
-# # Prior to conversion, a memristive device model must be defined and characterized in part
-# from memtorch.mn.Module import patch_model #be used to convert DNNs to a MDNNs.
-# from memtorch.map.Input import naive_scale
-# from memtorch.map.Parameter import naive_map # used to convert the weights within all torch.nn.Conv2d layers to equivalent conductance values
-# from memtorch.bh.nonideality.NonIdeality import apply_nonidealities
+import memtorch
+import copy
+# Prior to conversion, a memristive device model must be defined and characterized in part
+from memtorch.mn.Module import patch_model #be used to convert DNNs to a MDNNs.
+from memtorch.map.Input import naive_scale
+from memtorch.map.Parameter import naive_map # used to convert the weights within all torch.nn.Conv2d layers to equivalent conductance values
+from memtorch.bh.nonideality.NonIdeality import apply_nonidealities
 #--------------------------------------------------------------
 #Import aihwkit-----------------------------------------------
 from aihwkit.optim import AnalogSGD
@@ -20,37 +20,37 @@ from aihwkit.inference import PCMLikeNoiseModel
 from aihwkit.simulator.configs import WeightModifierType, WeightNoiseType, WeightClipType
 from aihwkit.simulator.rpu_base import cuda
 #--------------------------------------------------------------
-# class infer_memtorch():
-#     def __init__(self, r_on=1.4e4, r_off=5e7, tile_shape=(128, 128), ADC_resolution=8, failure_percentage=0.25) -> None:
-#         self.r_on=r_on
-#         self.r_off=r_off
-#         self.tile_shape=tile_shape
-#         self.ADC_resolution=ADC_resolution
-#         self.failure_percentage=failure_percentage
-#     def patch(self, model):
-#         reference_memristor = memtorch.bh.memristor.VTEAM # A reference (base) memristor model
-#         reference_memristor_params = {'time_series_resolution': 1e-10,'r_off': self.r_off, 'r_on': self.r_on}
-#         memristor = reference_memristor(**reference_memristor_params)
-#         patched_model = patch_model(copy.deepcopy(model),
-#                           memristor_model=reference_memristor,
-#                           memristor_model_params=reference_memristor_params,
-#                           module_parameters_to_patch=[torch.nn.Linear, torch.nn.Conv2d],
-#                           mapping_routine=naive_map,
-#                           transistor=True,
-#                           programming_routine=None,
-#                           tile_shape=self.tile_shape,
-#                           max_input_voltage=0.3,
-#                           scaling_routine=naive_scale,
-#                           ADC_resolution=self.ADC_resolution,
-#                           ADC_overflow_rate=0.,
-#                           quant_method='linear')
-#         patched_model_ = apply_nonidealities(copy.deepcopy(patched_model),
-#                                   non_idealities=[memtorch.bh.nonideality.NonIdeality.DeviceFaults],
-#                                   lrs_proportion=0.25,
-#                                   hrs_proportion=0.10,
-#                                   electroform_proportion=0)
-#         patched_model_.tune_()
-#         return patched_model_
+class infer_memtorch():
+    def __init__(self, r_on=1.4e4, r_off=5e7, tile_shape=(128, 128), ADC_resolution=8, failure_percentage=0.25) -> None:
+        self.r_on=r_on
+        self.r_off=r_off
+        self.tile_shape=tile_shape
+        self.ADC_resolution=ADC_resolution
+        self.failure_percentage=failure_percentage
+    def patch(self, model):
+        reference_memristor = memtorch.bh.memristor.VTEAM # A reference (base) memristor model
+        reference_memristor_params = {'time_series_resolution': 1e-10,'r_off': self.r_off, 'r_on': self.r_on}
+        memristor = reference_memristor(**reference_memristor_params)
+        patched_model = patch_model(copy.deepcopy(model),
+                          memristor_model=reference_memristor,
+                          memristor_model_params=reference_memristor_params,
+                          module_parameters_to_patch=[torch.nn.Linear, torch.nn.Conv2d],
+                          mapping_routine=naive_map,
+                          transistor=True,
+                          programming_routine=None,
+                          tile_shape=self.tile_shape,
+                          max_input_voltage=0.3,
+                          scaling_routine=naive_scale,
+                          ADC_resolution=self.ADC_resolution,
+                          ADC_overflow_rate=0.,
+                          quant_method='linear')
+        patched_model_ = apply_nonidealities(copy.deepcopy(patched_model),
+                                  non_idealities=[memtorch.bh.nonideality.NonIdeality.DeviceFaults],
+                                  lrs_proportion=0.25,
+                                  hrs_proportion=0.10,
+                                  electroform_proportion=0)
+        patched_model_.tune_()
+        return patched_model_
     
 class infer_aihwkit():
     def __init__(self, weight_scaling_omega=0.6, forward_out_res=-1., forward_w_noise_type=WeightNoiseType.ADDITIVE_CONSTANT,
