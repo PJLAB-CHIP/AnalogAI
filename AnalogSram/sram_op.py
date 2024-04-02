@@ -9,6 +9,7 @@ from torch.nn.parameter import Parameter
 from torch.autograd import Function
 import math
 import copy
+# from model.vit import MultiHeadSelfAttention
 
 
 class RangeTracker(nn.Module):
@@ -106,9 +107,13 @@ class AveragedRangeTracker(RangeTracker):
         # Update the running average of min and max values
         if self.first_a == 0:
             self.first_a.add_(1)
+            min_val = min_val.to(self.min_val.device)
+            max_val = max_val.to(self.max_val.device)
             self.min_val.add_(min_val)
             self.max_val.add_(max_val)
         else:
+            min_val = min_val.to(self.min_val.device)
+            max_val = max_val.to(self.max_val.device)
             self.min_val.mul_(1 - self.momentum).add_(min_val * self.momentum)
             self.max_val.mul_(1 - self.momentum).add_(max_val * self.momentum)
 
@@ -355,13 +360,13 @@ class SramConv2d(nn.Conv2d):
             # self.SRAM = AnalogSram(m=parallelism, error=error)
     def forward(self, input):
         # 量化A和W
-        q_input, input_scale = self.activation_quantizer(input)
+        input, input_scale = self.activation_quantizer(input)
         w_input, w_scale = self.weight_quantizer(self.weight)
-        B, C_in, H, W = q_input.shape
+        B, C_in, H, W = input.shape
         C_out, _, K, K = w_input.shape
 
         output = F.conv2d(
-            input = q_input,
+            input = input,
             weight = w_input,
             bias=self.bias,
             stride=self.stride,
@@ -458,11 +463,11 @@ class SramLinear(nn.Linear):
 
     def forward(self, input):
 
-        q_input, input_scale = self.activation_quantizer(input)
+        input, input_scale = self.activation_quantizer(input)
         w_input, w_scale = self.weight_quantizer(self.weight)
 
         output = F.linear(
-            input = q_input,
+            input = input,
             weight = w_input,
             bias=self.bias)
         
@@ -471,11 +476,202 @@ class SramLinear(nn.Linear):
         output = output / (input_scale*w_scale)
 
         return output
+    
 
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, feats:int, head:int=8, dropout:float=0.):
+        super().__init__()
+        self.head = head
+        self.feats = feats
+        self.sqrt_d = self.feats**0.5
+
+        self.q = nn.Linear(feats, feats)
+        self.k = nn.Linear(feats, feats)
+        self.v = nn.Linear(feats, feats)
+
+        self.o = nn.Linear(feats, feats)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, sram_error_simulator=None, parallelism=128,
+                        error=4,):
+        b, n, f = x.size()
+        q = self.q(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+        k = self.k(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+        v = self.v(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+
+        # 使用SRAM误差模拟的einsum
+        if sram_error_simulator is not None:
+            score = F.softmax(sram_einsum("bhif, bhjf->bhij", q, k, 
+                                          parallelism=parallelism,
+                        error=error,)/self.sqrt_d, dim=-1)
+            attn = sram_einsum("bhij, bhjf->bihf", score, v, 
+                               parallelism=parallelism,
+                        error=error,)
+        else:
+            score = F.softmax(torch.einsum("bhif, bhjf->bhij", q, k)/self.sqrt_d, dim=-1)
+            attn = torch.einsum("bhij, bhjf->bihf", score, v)
+
+        o = self.dropout(self.o(attn.flatten(2)))
+        return o
+
+'''
+class SramMultiHeadSelfAttention(MultiHeadSelfAttention):
+    def __init__(
+        self,
+        feats,
+        head,
+        dropout,
+        a_bits=8,
+        w_bits=8,
+        backend='SRAM',
+        parallelism=128,
+        error=4,
+      ):
+        super().__init__(
+            feats=feats, 
+            head=head,
+            dropout=dropout
+        )
+
+    def forward(self, x):
+        b, n, f = x.size()
+        q = self.q(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+        k = self.k(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+        v = self.v(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+
+        # 使用自定义的SRAMMatrixOperation进行矩阵乘法
+        score = SRAMMatrixOperation.apply(torch.einsum("bhif, bhjf->bhij", q, k), self.parallelism, self.error_range)
+        score = F.softmax(score / self.sqrt_d, dim=-1)
+        attn = SRAMMatrixOperation.apply(torch.einsum("bhij, bhjf->bihf", score, v), self.parallelism, self.error_range)
+
+        o = self.dropout(self.o(attn.flatten(2)))
+        return o
+'''
+
+def parse_einsum_equation_for_matrix_mul(equation, operands):
+    input_eq, _ = equation.split('->')
+    input_ops = input_eq.split(',')
+
+    # 找出共有维度
+    common_dims = set(input_ops[0]).intersection(input_ops[1])
+
+    # 找出参与乘法的维度，通常是两个操作数中的最后一个共有维度
+    common_dim = None
+    for dim in reversed(input_ops[0]):
+        if dim in common_dims:
+            common_dim = dim
+            break
+
+    if common_dim is None:
+        raise ValueError("No common dimension found for matrix multiplication.")
+
+    # 获取该共有维度在第一个操作数中的索引
+    common_dim_idx = input_ops[0].find(common_dim)
+
+    # 获取共有维度的大小
+    mac_dims = operands[0].shape[common_dim_idx]
+
+    return mac_dims
+
+
+def apply_sram_error_to_attention(module, sram_error_simulator, parallelism,
+                        error,):
+
+    original_forward = module.forward
+
+    def forward_with_sram_error(x):
+        return original_forward(x, sram_error_simulator=sram_error_simulator, parallelism=parallelism,
+                        error=error,)
+    
+    module.forward = forward_with_sram_error
+
+
+class SRAMErrorSimulator(Function):
+
+    @staticmethod
+    def forward(ctx: torch.Any, output, mac_dims, parallelism,
+                        error_range,) -> torch.Any:
+        errors_per_output_element = math.ceil(mac_dims / parallelism)
+        # Generate all random errors at once
+        total_error_shape = (errors_per_output_element,) + output.shape
+        # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
+        total_errors = torch.normal(0, error_range, total_error_shape, device=output.device)
+
+        # Round the errors to nearest integers
+        total_errors = torch.round(total_errors)
+        # Sum up all errors and reshape to match the output shape
+        total_errors = total_errors.sum(dim=0)
+
+        output += total_errors
+        total_errors=0
+
+        return output
+
+    @staticmethod
+    def backward(ctx: torch.Any, grad_outputs: torch.Any) -> torch.Any:
+        """
+        Backward pass for the SRAM simulation.
+
+        Parameters:
+        - grad_output: Gradient tensor from subsequent layers.
+
+        Returns:
+        - Gradient tensor for output, with additional None placeholders.
+        """
+        grad_input = grad_outputs.clone()
+        return grad_input, None, None, None
+    
+def calculate_scale_factor(tensor):
+    max_val = torch.max(torch.abs(tensor))
+    scale_factor = max_val / 127.0
+    return scale_factor
+
+def quantize(tensor, scale_factor):
+    return tensor / scale_factor
+
+def round(input):
+        output = Round.apply(input)
+        return output
+
+def clamp(input):
+        output = torch.clamp(input, -128, 127)
+        return output
+
+def dequantize(quantized_tensor, scale_factor):
+    return quantized_tensor * scale_factor
+
+
+
+def sram_einsum(equation, *operands, parallelism, error):
+    # quantize operands and get scale_factors, respectively
+    quantized_operands = []
+    scale_factors = []
+    for operand in operands:
+        scale_factor = calculate_scale_factor(operand)
+        quantized_operand = quantize(operand, scale_factor)
+        quantized_operand = round(quantized_operand)
+        quantized_operand = clamp(quantized_operand)
+        quantized_operands.append(quantized_operand)
+        scale_factors.append(scale_factor)
+
+    # einsum result
+    output = torch.einsum(equation, *quantized_operands)
+
+    # get MAC times
+    mac_dims = parse_einsum_equation_for_matrix_mul(equation, operands)
+
+    # apply SRAM error
+    output_with_error = SRAMErrorSimulator.apply(output, mac_dims, parallelism, error)
+
+    # dequantize
+    combined_scale_factor = math.prod(scale_factors)
+    dequantized_output = dequantize(output_with_error, combined_scale_factor)
+
+    return dequantized_output
 
 def convet_sram_op(module, layer_counter, device, a_bits=8, w_bits=8, backend='SRAM', parallelism=128,
         error=4,):
-    for name, child in module.named_children():
+    for name, child in module.named_children():      
         if isinstance(child, nn.Conv2d):
             layer_counter[0] += 1
             if layer_counter[0] > 1:
@@ -548,6 +744,33 @@ def convet_sram_op(module, layer_counter, device, a_bits=8, w_bits=8, backend='S
                 sram_linear.weight.data = child.weight
                 sram_linear.to(device)
                 module._modules[name] = sram_linear
+
+        elif isinstance(child, MultiHeadSelfAttention):
+            # 直接递归处理MultiHeadSelfAttention内部的层
+            convet_sram_op(
+                child, 
+                layer_counter, 
+                device, 
+                a_bits, 
+                w_bits, 
+                backend, 
+                parallelism, 
+                error)
+            # sram_MHA = SramMultiHeadSelfAttention(
+            #     child.feats,
+            #     child.head,
+            #     child.dropout,
+            #     a_bits=a_bits,
+            #     w_bits=w_bits,
+            #     backend=backend, 
+            #     parallelism=parallelism,
+            #     error=error,
+            # )
+            # scale_factor = 1  # 设置适当的scale_factor
+            sram_error_simulator = True
+            # apply_sram_error_to_attention(child, sram_error_simulator, parallelism,
+            #             error,)
+
         else:
             convet_sram_op(
                 child,
@@ -561,8 +784,16 @@ def convet_sram_op(module, layer_counter, device, a_bits=8, w_bits=8, backend='S
             )
 
 
-def convert_to_sram_prepare(model, inplace=False, device='cpu', a_bits=8, w_bits=8, backend='SRAM', parallelism=128,
-        error=4,):
+def convert_to_sram_prepare(
+    model, 
+    inplace=False, 
+    device='cpu', 
+    a_bits=8, 
+    w_bits=8, 
+    backend='SRAM', 
+    parallelism=128,
+    error=4,
+    ):
     if not inplace:
         model = copy.deepcopy(model)
     layer_counter = [0]

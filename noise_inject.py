@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+created on 10.26
+version: 1.0
+noise_inject.py
+"""
 import torch
 import torch.nn as nn
 import numpy as np
