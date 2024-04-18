@@ -424,3 +424,31 @@ def test_evaluation(validation_data, model, criterion, device):
 
     return model, epoch_loss, error, accuracy
 
+def theory_driven_loss(outputs, targets, weights, lambda_val, mu, eta):
+    """
+    implementation of 'Formalizing Generalization and Adversarial
+      Robustness of Neural Networks to Weight Perturbations'
+    eg.
+    # outputs = model(data)
+    # weights = [param for param in model.parameters() if len(param.size()) > 1]  # Assuming weights are 2D
+    # eta = compute_eta(outputs, target)  # This function needs to be defined based on your robustness analysis
+    # loss = theory_driven_loss(outputs, target, weights, lambda_val=0.01, mu=0.01, eta=eta)
+
+    :param outputs: Tensor, the predictions of the network (logits before softmax)
+    :param targets: Tensor, the true labels
+    :param weights: List of Tensors, the weight matrices of each layer of the network
+    :param lambda_val: float, coefficient for the robustness loss
+    :param mu: float, coefficient for the regularization term
+    :param eta: Tensor, precomputed robustness loss terms for each class
+    :return: computed loss value
+    """
+    cls_loss = F.cross_entropy(outputs, targets)
+
+    robustness_loss = torch.max(eta.gather(1, targets.unsqueeze(1)), dim=1)[0]
+
+    reg_loss = sum(torch.norm(w, p=1, dim=1).max() + torch.norm(w.t(), p=1, dim=1).max() for w in weights)
+
+    total_loss = cls_loss + lambda_val * robustness_loss + mu * reg_loss
+
+    return total_loss
+
