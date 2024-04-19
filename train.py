@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-created on 10.26
+created on 4.19
 version: 1.0
 train.py
 """
-# pylint: disable=invalid-name
 
 # Imports
 import os
-os.environ['WANDB_API_KEY'] = 'e7a84490fccf4d551013cad7ca58549bb09594f7'
+script_path = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_path)
+os.chdir(script_dir)
+# os.environ['WANDB_API_KEY'] = 'e7a84490fccf4d551013cad7ca58549bb09594f7'
 os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 from datetime import datetime
@@ -23,13 +25,13 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
 import timm
-from network import create_resnet32_model
-from model import resnet_Q, resnet, vgg, vggQ, lenet, lenetQ, mobileNetv2, mobileNetv2Q, preact_resnet, vit
+from .model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, vit
 # Imports from utils.
-from utils import create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation
+from utils import dict2namespace, create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation
 from dataset import load_dataset
 # Imports from networks.
 from noise_inject import InjectForward, InjectWeight, InjectWeightNoise
+from qat.fake_quantize import fake_quantize_prepare
 from earlystopping import EarlyStopping
 
 from AnalogSram.sram_op import convert_to_sram_prepare
@@ -38,44 +40,46 @@ from AnalogSram.sram_op import convert_to_sram_prepare
 # from call_inference import infer_memtorch, infer_aihwkit, infer_MNSIM
 from call_inference import infer_aihwkit, infer_MNSIM
 import argparse
+import yaml
 import wandb
-wandb.login()
+# wandb.login()
+
+def dict2namespace(config):
+    namespace = argparse.Namespace()
+    for key, value in config.items():
+        if isinstance(value, dict):
+            new_value = dict2namespace(value)
+        else:
+            new_value = value
+        setattr(namespace, key, new_value)
+    return namespace
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--project_name', default='AnalogAI', type=str, help='name')
 parser.add_argument('--architecture', default='vit', type=str, help='name')
 parser.add_argument('--dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--batch-size', default=512, type=int, help='mini-batch size')
-parser.add_argument('-lr',default=1e-3, type=float, help='learning rate')
-parser.add_argument('-momentum',default=9e-1, type=float, help='momentum')
-parser.add_argument('-weight_decay',default=0.0005, type=float, help='weight_decay')
-parser.add_argument('-epochs', default=200, type=int, help='sum of epochs')
-parser.add_argument('-n_classes', default=10, type=int, help='number of categories')
-parser.add_argument('--use_sgd', help='whether use sgd or adam', action='store_true')
-parser.add_argument('--injectforward', default=False, type=bool, help='whether inject forward noise or not')
-parser.add_argument('--mask', default=True, type=bool, help='whether inject forward with masked layers')
-parser.add_argument('--injectweightnoise', default=False, type=bool, help='whether inject weight noise or not')
-parser.add_argument('--injectweight', default=False, type=bool, help='whether inject noise or not')
-parser.add_argument('--mean', default=1., type=float, help='average value of noise')
-parser.add_argument('--sigma', default=1.0 / 6.0, type=float, help='variance of the noise')
-parser.add_argument('--SAM', default=False, type=bool, help='whether use SAM')
-parser.add_argument('-adaptive',default=False, type=bool, help='whether use ASAM')
-parser.add_argument('-analog_recover',default=True, type=bool, help='whether to recover on an analog platform')
+parser.add_argument('-sram_analog_recover',default=False, type=bool, help='whether to recover on an analog platform')
 parser.add_argument('-analog_infer',default=False, type=bool, help='whether to infer on an analog platform')
+
+parser.add_argument('--config', type=str, default='exp1.yml', help='Path to the config file')
 args = parser.parse_args()
 
-config = vars(args)
-print(config)
+config_dir = './exp/'
+with open(config_dir + args.config, 'r') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+config = dict2namespace(config)
 
 # Device to use
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to store datasets
-data_dir = os.path.join(os.getcwd(), "data", "DATASET")
+data_dir = os.path.join(os.getcwd(), "data", config.data.dataset)
 
 # Path to store results
-save_dir = './save_model/' + 'RESNET'
-model_path = 'res18.pth'
-WEIGHT_PATH = os.path.join(save_dir, model_path)
+save_dir = './save_model/' + config.data.architecture
+model_path = config.data.architecture + '.pth'
+save_path = os.path.join(save_dir, model_path)
 
 # Training parameters
 random_seed = 2024
@@ -130,19 +134,14 @@ def infer_evaluation(validation_data, model, criterion):
     return model, epoch_loss, error, accuracy
 
 def training_loop(model, 
-                criterion, 
-                optimizer, 
-                train_data, 
-                validation_data, 
-                epochs, 
-                mean,
-                sigma,
-                mask,
-                injectforward, 
-                injectweightnoise,
-                pla_lr_scheduler,
-                device, 
-                print_every=1):
+                  criterion, 
+                  optimizer, 
+                  train_data, 
+                  validation_data, 
+                  config,
+                  pla_lr_scheduler,
+                  device, 
+                  print_every=1):
     """Training loop.
 
     Args:
@@ -162,20 +161,38 @@ def training_loop(model,
     valid_losses = []
     test_error = []
 
-    # Train model
-    for epoch in range(0, epochs):
-        # Train_step
-        if epoch==1 and injectforward:
-            print('====>inject forward noise<====')
-            noise = InjectForward('normal_flu', mean, sigma, mask)
-            # noise(model)
-        elif epoch==1 and injectweightnoise:
-            print('====>inject weight noise<====')
-            noise = InjectWeightNoise(model, noise_level=0.1)
-        else:
-            noise = None
+    if config.recovery.qat.use:
+        model = fake_quantize_prepare(model=model, 
+                                      device=device, 
+                                      a_bits=config.recovery.qat.a_bits, 
+                                      w_bits=config.recovery.qat.w_bits, )
 
-        model, optimizer, train_loss = train_step(train_data, model, criterion, optimizer, device, noise)
+    # Train model
+    for epoch in range(0, config.training.epochs):
+        # Train_step
+        if  config.recovery.noise.act_inject.use:
+            print('====>inject forward noise<====')
+            noise_a = InjectForward(config.recovery.noise.act_inject.type, 
+                                    config.recovery.noise.act_inject.mean, 
+                                    config.recovery.noise.act_inject.sigma, 
+                                    config.recovery.noise.act_inject.mask)
+        else:
+            noise_a = None
+            
+        if  config.recovery.noise.weight_inject.use:
+            print('====>inject weight noise<====')
+            noise_w = InjectWeightNoise(model, 
+                                       noise_level=config.recovery.noise.weight_inject.level)
+        else:
+            noise_w = None
+
+        model, optimizer, train_loss = train_step(train_data, 
+                                                  model, 
+                                                  criterion, 
+                                                  optimizer, 
+                                                  device, 
+                                                  noise_a,
+                                                  noise_w)
         train_losses.append(train_loss)
 
         if epoch % print_every == (print_every - 1):
@@ -196,13 +213,17 @@ def training_loop(model,
                 f"Test accuracy: {accuracy:.2f}%\t"
             )  
         pla_lr_scheduler.step(valid_loss)   
-        best_accuracy = early_stopping(accuracy, model.state_dict(), epoch, save_dir)
+        best_accuracy = early_stopping(accuracy, 
+                                       model.state_dict(), 
+                                       config.data.architecture,
+                                       epoch, 
+                                       save_dir)
         if early_stopping.early_stop:
             print("Early stopping")
             break
-        wandb.log({'epoch':epoch, 'accuracy':best_accuracy, 'train_loss':train_loss, 'valid_loss':valid_loss})
+        # wandb.log({'epoch':epoch, 'accuracy':best_accuracy, 'train_loss':train_loss, 'valid_loss':valid_loss})
     
-    wandb.finish()
+    # wandb.finish()
     
     return model, optimizer
 
@@ -212,32 +233,35 @@ def main():
     # Make sure the directory where to save the results exist.
     # Results include: Loss vs Epoch graph, Accuracy vs Epoch graph and vector data.
     os.makedirs(save_dir, exist_ok=True)
-    torch.manual_seed(random_seed)
 
     # Load datasets.
-    dataset = load_dataset(data_dir, args.batch_size, args.dataset)
+    dataset = load_dataset(data_dir, 
+                           config.training.batch_size, 
+                           config.data.dataset)
     train_data, validation_data = dataset.load_images()
 
     #----Load the pytorch model------
-    # model = resnet_Q.ResNet18Qsram()
-    # model = resnet.ResNet18()
-    # model = timm.create_model('mobilenetv2_100', pretrained=False, num_classes=10)
-    # model = mobileNetv2.MobileNetV2()
-    model = vit.ViT()
-    # model = timm.create_model('resnet18', pretrained=False, num_classes=10)
+    model = resnet.ResNet18()
+
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)     
     model.to(device)
 
-    if args.analog_recover:
+    if args.sram_analog_recover:
     #----load existing model---------
-        if os.path.exists('/code/AnalogAI/save_model/RESNET/vit_72_81.690000.pth.tar'):
+        if os.path.exists('.pth.tar'):
             print('==> loading existing model')
-            model.load_state_dict(torch.load('/code/AnalogAI/save_model/RESNET/vit_72_81.690000.pth.tar'))   
+            model.load_state_dict(torch.load('.pth.tar'))   
         #----------------------
         model = convert_to_sram_prepare(model=model, device=device, backend='SRAM', parallelism=16, error=300,)
     
-    optimizer = create_optimizer(model, args.lr, args.momentum, args.weight_decay, args.use_sgd, args.SAM, args.adaptive)
+    optimizer = create_optimizer(model, 
+                                 config.training.lr, 
+                                 config.training.momentum, 
+                                 config.training.weight_decay, 
+                                 config.training.optimizer, 
+                                 config.recovery.optimizer.sam, 
+                                 config.recovery.optimizer.adaptive)
 
     pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                       factor=0.5,
@@ -248,22 +272,16 @@ def main():
 
     print(f"\n{datetime.now().time().replace(microsecond=0)} --- " f"Started Training")
 
-    wandb.init(project="AnalogAI", config=config)
+    # wandb.init(project="AnalogAI", config=config)
 
-    model, optimizer = training_loop(
-        model, 
-        criterion, 
-        optimizer, 
-        train_data, 
-        validation_data, 
-        args.epochs, 
-        args.mean, 
-        args.sigma, 
-        args.mask,
-        args.injectforward, 
-        args.injectweightnoise, 
-        pla_lr_scheduler,
-        device,
+    model, optimizer = training_loop(model, 
+                                     criterion, 
+                                     optimizer, 
+                                     train_data, 
+                                     validation_data, 
+                                     config,
+                                     pla_lr_scheduler,
+                                     device,
 
     )
 
@@ -277,7 +295,7 @@ def main():
             device_cpu = torch.device("cpu")
             model.to(device_cpu)
             print('==> loading existing model')
-            model.load_state_dict(torch.load(WEIGHT_PATH))
+            model.load_state_dict(torch.load(save_path))
             # # infer_model = infer_memtorch().patch(model)
             # infer_model = infer_aihwkit().patch(model)
             # print('==> inferencing on IBM')
