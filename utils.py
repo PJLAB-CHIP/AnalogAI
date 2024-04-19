@@ -15,8 +15,19 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 from noise_inject import InjectForward, InjectWeight, InjectWeightNoise
+import argparse
 
-def create_optimizer(model, lr, momentum, weight_decay, optim_select, SAM, ASAM):
+def dict2namespace(config):
+    namespace = argparse.Namespace()
+    for key, value in config.items():
+        if isinstance(value, dict):
+            new_value = dict2namespace(value)
+        else:
+            new_value = value
+        setattr(namespace, key, new_value)
+    return namespace
+
+def create_optimizer(model, lr, momentum, weight_decay, optim_select, use_sam, ASAM):
     """Create the optimizer.
 
     Args:
@@ -27,16 +38,17 @@ def create_optimizer(model, lr, momentum, weight_decay, optim_select, SAM, ASAM)
     Returns:
         Optimizer: created  optimizer
     """
-    if optim_select:
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    if optim_select == "Adam":
+        optimizer = torch.optim.Adam
         print('use adam')
     else:
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+        optimizer = torch.optim.SGD
         print('use SGD')
 
-    if SAM:
-        base_optimizer = torch.optim.SGD
-        optimizer = SAM(model.parameters(), base_optimizer, adaptive=ASAM, lr=lr, momentum=momentum, weight_decay=weight_decay)
+    if use_sam:
+        optimizer = SAM(model.parameters(), optimizer, adaptive=ASAM, lr=lr, weight_decay=weight_decay)
+    else:
+        optimizer = optimizer(model.parameters(), lr=lr)
     return optimizer
 
     
@@ -326,7 +338,13 @@ class Trainer:
         self.optimizer.step()
     
 
-def train_step(train_data, model, criterion, optimizer, device, noise=None):
+def train_step(train_data, 
+               model, 
+               criterion, 
+               optimizer, 
+               device, 
+               noise_a=None, 
+               noise_w=None):
 
     """Train network.
 
@@ -339,8 +357,9 @@ def train_step(train_data, model, criterion, optimizer, device, noise=None):
     Returns:
         nn.Module, Optimizer, float: model, optimizer, and epoch loss
     """
-    if isinstance(noise, InjectForward):
-        noise(model)
+
+    if noise_a is not None:
+        noise_a(model)
     total_loss = 0
 
     criterion.to(device)
@@ -361,9 +380,9 @@ def train_step(train_data, model, criterion, optimizer, device, noise=None):
             
             # second forward-backward pass
             criterion(model(images), labels).backward()  # make sure to do a full forward pass
-            if isinstance(noise, InjectWeightNoise):
-                noise.add_noise_to_weights()
-                noise.update_model_weights()
+            if isinstance(noise_w, InjectWeightNoise):
+                noise_w.add_noise_to_weights()
+                noise_w.update_model_weights()
             optimizer.second_step(zero_grad=True)
         else:
             # Add training Tensor to the model (input).
@@ -372,9 +391,9 @@ def train_step(train_data, model, criterion, optimizer, device, noise=None):
 
             # Run training (backward propagation).
             loss.backward()
-            if isinstance(noise, InjectWeightNoise):
-                noise.add_noise_to_weights()
-                noise.update_model_weights()
+            if isinstance(noise_w, InjectWeightNoise):
+                noise_w.add_noise_to_weights()
+                noise_w.update_model_weights()
             # Optimize weights.
             optimizer.step()
         total_loss += loss.item() * images.size(0)

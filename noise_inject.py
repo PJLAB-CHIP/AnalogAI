@@ -55,7 +55,7 @@ class InjectForward():
             w = output
             normal = torch.randn(w.shape, device = w.device) 
             normal = normal * sigma + mean
-            output = torch.mul(w,normal)
+            output = torch.mul(w, normal)
             return output
         
         def uniform_fluction(module, input, output):        # uniformly distributed disturbance
@@ -67,8 +67,8 @@ class InjectForward():
             return output
         
         self.fault_types = { #choose types
-            'uniform_flu'        :uniform_fluction,
-            'normal_flu'         :normal_fluction,
+            'uniform'        :uniform_fluction,
+            'Gaussian'         :normal_fluction,
             }
         self.get_hook(model, self.fault_types[self.fault_type])
         

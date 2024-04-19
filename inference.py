@@ -4,7 +4,7 @@ created on 10.26
 version: 1.0
 train.py
 """
-# pylint: disable=invalid-name
+
 
 # Imports
 import os
@@ -23,7 +23,6 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
 import timm
-from network import create_resnet32_model
 from model import resnet_Q, resnet, vgg, vggQ, lenet, lenetQ, mobileNetv2, mobileNetv2Q, preact_resnet, vit
 # Imports from utils.
 from utils import create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation

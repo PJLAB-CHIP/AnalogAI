@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from QModule import Linear_Q, Conv2d_Q
+from paper.AnalogAI.qat.qat import Linear_Q, Conv2d_Q
 from qmodule_sram import SramConv2d, SramLinear
 
 class BasicBlockQ(nn.Module):

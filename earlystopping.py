@@ -20,13 +20,13 @@ class EarlyStopping:
         self.early_stop = False
         self.accuracy_min = np.Inf
 
-    def __call__(self, accuracy, model, epoch, save_path):
+    def __call__(self, accuracy, model, model_name, epoch, save_path):
 
         score = accuracy
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(accuracy, model, epoch, save_path)
+            self.save_checkpoint(accuracy, model, epoch, model_name, save_path)
         elif score < self.best_score:
             self.counter += 1
             print(
@@ -36,11 +36,11 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(accuracy, model, epoch, save_path)
+            self.save_checkpoint(accuracy, model, epoch, model_name, save_path)
             self.counter = 0
         return self.best_score
 
-    def save_checkpoint(self, accuracy, model, epoch, save_path):
+    def save_checkpoint(self, accuracy, model, epoch, model_name, save_path):
         '''Saves model when validation loss decrease.'''
         if self.verbose:
             print(
@@ -48,5 +48,5 @@ class EarlyStopping:
             )
         torch.save(
             model, save_path + "/" +
-            "vit_{}_{:.6f}.pth.tar".format(epoch, accuracy))
+            model_name + "_{}_{:.6f}.pth.tar".format(epoch, accuracy))
         self.accuracy_min = accuracy

@@ -1,16 +1,15 @@
 '''LeNet in PyTorch.'''
 import torch.nn as nn
 import torch.nn.functional as F
-from paper.AnalogAI.qat.qat import Linear_Q, Conv2d_Q
 
-class LeNetQ(nn.Module):
+class LeNet(nn.Module):
     def __init__(self):
-        super(LeNetQ, self).__init__()
-        self.conv1 = Conv2d_Q(3, 6, 5, first_layer = 1)
-        self.conv2 = Conv2d_Q(6, 16, 5)
-        self.fc1   = Linear_Q(16*5*5, 120)
-        self.fc2   = Linear_Q(120, 84)
-        self.fc3   = Linear_Q(84, 10)
+        super(LeNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1   = nn.Linear(16*5*5, 120)
+        self.fc2   = nn.Linear(120, 84)
+        self.fc3   = nn.Linear(84, 10)
 
     def forward(self, x):
         out = F.relu(self.conv1(x))
