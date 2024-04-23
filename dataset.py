@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torchvision
 from torchvision import datasets, transforms
+import os
+from os.path import join,exists
 
 class load_dataset():
     def __init__(self, PATH_DATASET, BATCH_SIZE, dataname) -> None:
@@ -28,6 +30,7 @@ class load_dataset():
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
+            
             trainset = torchvision.datasets.CIFAR10(
                 root='./data', train=True, download=True, transform=transform_train)
             testset = torchvision.datasets.CIFAR10(

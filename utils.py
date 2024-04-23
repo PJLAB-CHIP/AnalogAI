@@ -340,6 +340,7 @@ class Trainer:
 
 def train_step(train_data, 
                model, 
+               global_model,
                criterion, 
                optimizer, 
                device, 
@@ -362,6 +363,7 @@ def train_step(train_data,
         noise_a(model)
     total_loss = 0
 
+    model.to(device)
     criterion.to(device)
     t = tqdm(train_data, leave=False, total=len(train_data))
     # for images, labels in train_data:
@@ -375,6 +377,12 @@ def train_step(train_data,
             # first forward-backward pass
             output = model(images)
             loss = criterion(output, labels)  # use this loss for any training statistics
+            """(optional): add proximal term"""
+            proximal_term = torch.tensor(0.0,device=device)
+            for w_global,w in zip(global_model.parameters(),model.parameters()):
+                proximal_term += (w_global - w).norm(2)**2
+            loss += (0.1/2) * proximal_term
+            
             loss.backward()
             optimizer.first_step(zero_grad=True)
             

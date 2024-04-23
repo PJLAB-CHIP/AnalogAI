@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from .sram_op import SramConv2d
 from .sram_op import SramLinear
 from .sram_op import apply_sram_error_to_attention, sram_einsum
-from model.vit import MultiHeadSelfAttention
+from model.model_set.vit import MultiHeadSelfAttention
 from torch import distributed
 from torch.nn import init
 from torch.nn.parameter import Parameter

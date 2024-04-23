@@ -130,7 +130,7 @@ def parse_option():
     parser.add_argument('--batch-size', default=512, type=int, help='mini-batch size')
     parser.add_argument('-sram_analog_recover',default=False, type=bool, help='whether to recover on an analog platform')
     parser.add_argument('-analog_infer',default=False, type=bool, help='whether to infer on an analog platform')
-    parser.add_argument('--config', type=str, default='exp1.yml', help='Path to the config file')
+    parser.add_argument('--config', type=str, default='client_5_noise_0-0.1_T_T.yml', help='Path to the config file')
 
     opt = parser.parse_args()
 

@@ -10,7 +10,7 @@ training:
   lr: 0.001
   weight_decay: 0.0005
   momentum: 0.000000001
-  epochs: 200
+  epochs: 1
   warmup: 1000
   beta1: 0.9
   amsgrad: false
@@ -18,20 +18,20 @@ training:
   grad_clip: 1.0
 
 recovery:
-  noise: 
+  noise_0: 
     act_inject:
-      use: True
+      use: false
       type: "Gaussian" # "uniform"
       mean: 1.0
-      sigma: 0.1666667
+      sigma: 0.0
       mask: None
       add: false
       mul: True
     weight_inject: 
-      use: True
+      use: false
       type: "Gaussian" # "uniform"
       mean: 1.0
-      sigma: 0.1666667
+      sigma: 0.1
       add: false
       mul: True
       level: 0.1

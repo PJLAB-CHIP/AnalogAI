@@ -18,7 +18,7 @@ from aihwkit.simulator.presets import TikiTakaEcRamPreset
 from aihwkit.simulator.configs import MappingParameter, SingleRPUConfig, IOParameters, InferenceRPUConfig
 from aihwkit.inference import PCMLikeNoiseModel
 from aihwkit.simulator.configs import WeightModifierType, WeightNoiseType, WeightClipType
-from aihwkit.simulator.rpu_base import cuda
+# from aihwkit.simulator.rpu_base import cuda
 #--------------------------------------------------------------
 # class infer_memtorch():
 #     def __init__(self, r_on=1.4e4, r_off=5e7, tile_shape=(128, 128), ADC_resolution=8, failure_percentage=0.25) -> None:
@@ -97,11 +97,11 @@ class infer_aihwkit():
         return rpu_config   
 
     def patch(self, model):
-        RPU_CONFIG = self.create_rpu_config
+        RPU_CONFIG = self.create_rpu_config()
         analog_model = convert_to_analog(model, RPU_CONFIG)
         return analog_model
 
 
-class infer_MNSIM():
-    def __init__(self) -> None:
-        pass
+# class infer_MNSIM():
+#     def __init__(self) -> None:
+#         pass

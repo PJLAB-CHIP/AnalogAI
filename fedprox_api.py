@@ -9,6 +9,7 @@ import torch
 from datetime import datetime
 import torch.nn as nn
 import wandb
+from call_inference import infer_aihwkit
 
 from fedprox_utils import Client,agg_FedAvg,save_model
 from earlystopping import EarlyStopping
@@ -84,13 +85,49 @@ class FedProxAPI_personal(object):
         for round_idx in range(1,self.args.comm_round+1):
             logging.info("################Communication round : {}".format(round_idx))
             w_locals = [] # record the weight of each client
+
+            # (optional): weight selected method definition
+            acc_locals = [] # record acc tested on the analog computing platform
+            """for the first round"""
+            if round_idx == 1:
+                for _ in range(self.args.client_num_in_total):
+                    acc_locals.append(1/self.args.client_num_in_total)
+
             # step2.1: train individually for each client
             for idx, client in enumerate(self.client_list):
                 w,model,optimizer = client.train()
-                w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
+                # w_locals.append((client.get_sample_number(), copy.deepcopy(w))) # avg using sample number
+
+                # (extra): get noise config for each client
+                # if idx == 0:
+                #     self.config.recovery.noise = self.config.recovery.noise_0
+                # elif idx == 1:
+                #     self.config.recovery.noise = self.config.recovery.noise_1
+                # elif idx == 2:
+                #     self.config.recovery.noise = self.config.recovery.noise_2
+                # elif idx == 3:
+                #     self.config.recovery.noise = self.config.recovery.noise_3
+                # elif idx == 4:
+                #     self.config.recovery.noise = self.config.recovery.noise_4
+                # w_locals.append((self.config.recovery.noise.act_inject.sigma, copy.deepcopy(w)))
+                print('acc_locals:', acc_locals)
+                print('idx:', idx)
+                w_locals.append((acc_locals[idx],copy.deepcopy(w)))
             
             # step2.2: update global weights and local weights
             w_global = self._aggregate(w_locals)
+
+            # (optional): test on the analog computing platform --> update client's weight
+            if self.config.inference.platform.aihwkit:
+                for idx, client in enumerate(self.client_list):
+                    print("==> inferencing on IBM") 
+                    n_w = 0.02
+                    infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(client.model)
+                    _, _, error, accuracy = self.model_trainer.test(
+                                    self.validation_data, infer_model_aihwkit, nn.CrossEntropyLoss(), self.device
+                                )
+                    print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
+                    acc_locals.append(accuracy)
         
             self.model_trainer.set_model_params(self.global_model, w_global)
             for idx, client in enumerate(self.client_list):
@@ -110,7 +147,7 @@ class FedProxAPI_personal(object):
                 f"Test accuracy: {accuracy:.2f}%\t"
             )
             
-            save_dir='/code/AnalogAI/save_model/'+self.config.data.architecture
+            save_dir=self.config.save_dir
             best_accuracy = early_stopping(accuracy, 
                                         self.global_model.state_dict(), 
                                         -1,
