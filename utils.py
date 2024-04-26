@@ -421,11 +421,13 @@ def train_step(train_data,
             # first forward-backward pass
             output = model(images)
             loss = criterion(output, labels)  # use this loss for any training statistics
-            """(optional): add proximal term"""
-            proximal_term = torch.tensor(0.0,device=device)
-            for w_global,w in zip(global_model.parameters(),model.parameters()):
-                proximal_term += (w_global - w).norm(2)**2
-            loss += (0.1/2) * proximal_term
+
+            if config.training.use_fl:
+                """(optional): add proximal term"""
+                proximal_term = torch.tensor(0.0,device=device)
+                for w_global,w in zip(global_model.parameters(),model.parameters()):
+                    proximal_term += (w_global - w).norm(2)**2
+                loss += (0.1/2) * proximal_term
             
             loss.backward()
             optimizer.first_step(zero_grad=True)
@@ -443,6 +445,14 @@ def train_step(train_data,
                 images.requires_grad = True
                 output = model(images)
                 loss = criterion(output, labels)
+
+                if config.training.use_fl:
+                    """(optional): add proximal term"""
+                    proximal_term = torch.tensor(0.0,device=device)
+                    for w_global,w in zip(global_model.parameters(),model.parameters()):
+                        proximal_term += (w_global - w).norm(2)**2
+                    loss += (0.1/2) * proximal_term
+
                 optimizer.zero_grad()
                 loss.backward(retain_graph=True)
                 images_grad = images.grad.data
@@ -468,6 +478,14 @@ def train_step(train_data,
                 perturbed_data.requires_grad = True
                 output = model(perturbed_data)
                 loss = criterion(output, labels)
+
+                if config.training.use_fl:
+                    """(optional): add proximal term"""
+                    proximal_term = torch.tensor(0.0,device=device)
+                    for w_global,w in zip(global_model.parameters(),model.parameters()):
+                        proximal_term += (w_global - w).norm(2)**2
+                    loss += (0.1/2) * proximal_term
+
                 # Backward pass
                 optimizer.zero_grad()
                 loss.backward()
