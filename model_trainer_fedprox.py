@@ -113,6 +113,7 @@ class FedProxTrainer(object):
                                                     criterion, 
                                                     optimizer, 
                                                     device, 
+                                                    config,
                                                     noise_a,
                                                     noise_w)
             train_losses.append(train_loss)

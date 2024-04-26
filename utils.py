@@ -336,6 +336,49 @@ class Trainer:
         self.optimizer.zero_grad()
         total_loss.backward()
         self.optimizer.step()
+
+def FGSM(image, epsilon, data_grad):
+    sign_data_grad = data_grad.sign()
+    # Create the perturbed image by adjusting each pixel of the input image
+    perturbed_image = image + epsilon * sign_data_grad
+    # Adding clipping to maintain [0,1] range
+    perturbed_image = torch.clamp(perturbed_image, 0, 1)
+    perturbed_image = perturbed_image.detach()
+    perturbed_image.requires_grad = True
+    return perturbed_image
+
+def PGD(model, images, labels, loss_fn, epsilon, step_size, num_steps):
+    # Set the model to evaluation mode
+    model.eval()
+    perturbed_images = images.clone().detach()
+    perturbed_images.requires_grad = True
+
+    for _ in range(num_steps):
+        # Forward pass
+        outputs = model(perturbed_images)
+
+        # Calculate the loss
+        loss = loss_fn(outputs, labels)
+
+        # Zero gradients
+        model.zero_grad()
+
+        # Backward pass to calculate gradients
+        loss.backward()
+
+        # Collect the element-wise sign of the data gradient
+        data_grad = perturbed_images.grad.data.sign()
+
+        # Update perturbed image with small step in the direction of the gradient
+        perturbed_images = perturbed_images + step_size * data_grad
+
+        # Clip perturbed image values to be within the valid range [original_image - epsilon, original_image + epsilon]
+        perturbed_images = torch.max(torch.min(perturbed_images, images + epsilon), images - epsilon)
+        perturbed_images = torch.clamp(perturbed_images, 0, 1).detach()  # Detach to avoid gradient accumulation
+        # Re-enable gradients for the next iteration
+        perturbed_images.requires_grad = True   
+
+    return perturbed_images
     
 
 def train_step(train_data, 
@@ -344,6 +387,7 @@ def train_step(train_data,
                criterion, 
                optimizer, 
                device, 
+               config,
                noise_a=None, 
                noise_w=None):
 
@@ -394,11 +438,48 @@ def train_step(train_data,
             optimizer.second_step(zero_grad=True)
         else:
             # Add training Tensor to the model (input).
-            output = model(images)
-            loss = criterion(output, labels)
+            if config.recovery.adversarial.FGSM.use:
+                print('config.recovery.adversarial.FGSM.use')
+                images.requires_grad = True
+                output = model(images)
+                loss = criterion(output, labels)
+                optimizer.zero_grad()
+                loss.backward(retain_graph=True)
+                images_grad = images.grad.data
+                perturbed_data = FGSM(images, 
+                                      epsilon=config.recovery.adversarial.FGSM.epsilon,
+                                      data_grad=images_grad)
+                # perturbed_data.requires_grad = True
+
+                output_perturbed = model(perturbed_data)
+                loss_perturbed = criterion(output_perturbed, labels)
+                optimizer.zero_grad()
+                loss_perturbed.backward()
+                
+            elif config.recovery.adversarial.PGD.use:
+                print('config.recovery.adversarial.PGD.use')
+                perturbed_data = PGD(model, 
+                                     images, 
+                                     labels, 
+                                     criterion, 
+                                     epsilon=config.recovery.adversarial.PGD.epsilon,
+                                     step_size=config.recovery.adversarial.PGD.alpha,
+                                     num_steps=config.recovery.adversarial.PGD.num_steps, )
+                perturbed_data.requires_grad = True
+                output = model(perturbed_data)
+                loss = criterion(output, labels)
+                # Backward pass
+                optimizer.zero_grad()
+                loss.backward()
+            
+            else:
+                output = model(images)
+                loss = criterion(output, labels)
+                # Backward pass
+                optimizer.zero_grad()
+                loss.backward()
 
             # Run training (backward propagation).
-            loss.backward()
             if isinstance(noise_w, InjectWeightNoise):
                 noise_w.add_noise_to_weights()
                 noise_w.update_model_weights()
