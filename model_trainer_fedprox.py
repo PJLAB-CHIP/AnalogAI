@@ -55,7 +55,6 @@ class FedProxTrainer(object):
         Returns:
             float: _description_
         """
-        # save_dir='/code/AnalogAI/save_model/'+config.data.architecture
         save_dir = config.save_dir
         train_losses = []
         valid_losses = []
@@ -78,6 +77,17 @@ class FedProxTrainer(object):
             config.recovery.noise = config.recovery.noise_3
         elif client_idx == 4:
             config.recovery.noise = config.recovery.noise_4
+        elif client_idx == 5:
+            config.recovery.noise = config.recovery.noise_5
+        elif client_idx == 6:
+            config.recovery.noise = config.recovery.noise_6
+        elif client_idx == 7:
+            config.recovery.noise = config.recovery.noise_7
+        elif client_idx == 8:
+            config.recovery.noise = config.recovery.noise_8
+        elif client_idx == 9:
+            config.recovery.noise = config.recovery.noise_9
+        
         print(config.recovery.noise)
         # Train model
         for epoch in range(0, config.training.epochs):
@@ -97,7 +107,6 @@ class FedProxTrainer(object):
                                         noise_level=config.recovery.noise.weight_inject.level)
             else:
                 noise_w = None
-
             model, optimizer, train_loss = train_step(train_data, 
                                                     model, 
                                                     global_model,
@@ -126,12 +135,6 @@ class FedProxTrainer(object):
                     f"Test accuracy: {accuracy:.2f}%\t"
                 )  
             pla_lr_scheduler.step(valid_loss)   
-            best_accuracy = early_stopping(accuracy, 
-                                        model.state_dict(), 
-                                        client_idx,
-                                        config.data.architecture,
-                                        epoch, 
-                                        save_dir)
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

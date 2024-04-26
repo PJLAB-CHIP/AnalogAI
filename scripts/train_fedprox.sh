@@ -1,3 +1,6 @@
 python train_fedprox.py \
-    --config client_5_noise_0.3-0.4_T_T.yml \
-    --use_fl True \
+    --config vgg16_cifar10_client_5_epoch_1_T_F_noise_0_0.2_0.1_0.1_F.yml \
+    --device cuda:6 \
+    --comm_round 50 \
+    # --use_momentum True \
+    # --use_foundation_model True \

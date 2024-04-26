@@ -11,20 +11,16 @@ import os
 
 from altair import value
 os.environ['WANDB_API_KEY'] = 'cfb5ba8f1bb02b39b518c24874b8579617459db3'
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "7"
-from datetime import datetime
 from tqdm import tqdm
 import re
 # import timm
-import timm
 import numpy as np
 # Imports from PyTorch.
 import torch
 from torch import nn, device, no_grad, save
 from torch import max as torch_max
-import torch.nn.functional as F
-from torch.optim import lr_scheduler
 # Imports from networks.
 
 from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, vit
@@ -64,15 +60,24 @@ config = dict2namespace(config)
 # Device to use
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-device_cpu = torch.device("cpu")
-
 # Path to store datasets
 data_dir = os.path.join(os.getcwd(), "data", config.data.dataset)
 
 # Path to store results
-# basic_dir = (args.config).replace('.yml','')
-# save_dir = './save_model/' + f'{config.data.architecture}_{basic_dir}'
-save_dir = './save_model/' + config.data.architecture
+
+"""Normalize the experiment setup"""
+min_noise_intensity = config.recovery.noise_0.act_inject.sigma
+_min_noise_intensity = config.recovery.noise_0.weight_inject.level
+if config.training.client_num_in_total == 5 or config.training.client_num_in_total == 1:
+    max_noise_intensity = config.recovery.noise_4.act_inject.sigma
+    _max_noise_intensity = config.recovery.noise_4.weight_inject.level
+elif config.training.client_num_in_total == 10:
+    max_noise_intensity = config.recovery.noise_9.act_inject.sigma
+    _max_noise_intensity = config.recovery.noise_9.weight_inject.level
+
+basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+# save_dir = os.path.join('./save_model/',basic_dir,'client_4')
+save_dir = os.path.join('./save_model/',basic_dir)
 
 model_path = config.data.architecture + '.pth'
 save_path = os.path.join(save_dir, model_path)
@@ -125,7 +130,7 @@ def test_evaluation(validation_data, model, criterion, device):
 
 def get_best_model(save_dir):
     pattern = r"(\d+\.\d+)"
-    model_list = os.listdir('./save_model/resnet18')
+    model_list = os.listdir(save_dir)
     best_acc = 0.0
     best_model = None
     for model in model_list:
@@ -148,8 +153,14 @@ def main():
     train_data, validation_data = dataset.load_images()
 
     #----Load the pytorch model------
-
-    model = resnet.ResNet18()
+    if config.data.architecture == 'vgg11':
+        model = vgg.VGG('VGG11')
+    elif config.data.architecture == 'vgg16':
+        model = vgg.VGG('VGG16')
+    elif config.data.architecture == 'resnet18':
+        model = resnet.ResNet18()
+    elif config.data.architecture == 'vit':
+        model = vit.ViT()
 
     model.to(device)   
     criterion = nn.CrossEntropyLoss().cuda()
@@ -157,7 +168,7 @@ def main():
     # if torch.cuda.device_count() > 1:
     #     model = nn.DataParallel(model) 
 
-
+    """(fix): layer name transfer"""
     # trained_model = torch.load('/code/AnalogAI/save_model/deprecated/resnet_139_91.880000.pth.tar')
     # converted_weights = {}
     # for key, value in trained_model.items():
@@ -170,13 +181,14 @@ def main():
     # model.load_state_dict(converted_weights)
 
     #----load existing model---------
-    best_model = get_best_model(save_dir=save_dir)
-    if os.path.exists(os.path.join(save_dir, best_model)):
-        print('==> loading existing model')
-        # model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
-        model.load_state_dict(torch.load('/code/AnalogAI/save_model/resnet18_4_22/resnet18_client_-1_round_33_91.810000.pth.tar'))
-        # model.load_state_dict(torch.load('/code/AnalogAI/save_model/deprecated/resnet_139_91.880000.pth.tar')) 
+    model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/vgg16_cifar10_client_5_epoch_1_True_False_noise_0.0_0.2_0.1_0.1_False/client_2/vgg16_client_2_round_10_80.650000.pth.tar'))
 
+    # best_model = get_best_model(save_dir=save_dir)
+    # if os.path.exists(os.path.join(save_dir, best_model)):
+    #     print('==> loading existing model')
+    #     model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
+
+    """(optional): data parallel"""
     # if torch.cuda.device_count() > 1:
     #     model = nn.DataParallel(model)
     
@@ -187,7 +199,7 @@ def main():
     # wandb.run.name = f'{basic_name}_inference'
 
     # infer
-    if config.inference.platform.sram:
+    if config.inference.platform.sram.use:
         print("==> inferencing on SRAM") 
         ps = [16, 32, 64, 128]
         es = np.linspace(100, 200, num=2, endpoint=True)
@@ -204,18 +216,18 @@ def main():
                 print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' parallelism:{p:.4f}' + f' error:{e:.4f}')
                 # wandb.log({'parallelis_sram':p, 'error_sram':e, 'accuracy_sram':accuracy})
 
-    if config.inference.platform.aihwkit:
+    if config.inference.platform.aihwkit.use:
         print("==> inferencing on IBM") 
-        w = np.linspace(0., 0.02, num=5, endpoint=True)
+        w = np.linspace(0., 0.1, num=20, endpoint=True)
         for n_w in w:
             infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(model)
             _, _, error, accuracy = test_evaluation(
-                            validation_data, infer_model_aihwkit, criterion, device_cpu
+                            validation_data, infer_model_aihwkit, criterion, device
                         )
             print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
             # wandb.log({'w_noise_aihwkit':n_w, 'error_aihwkit':error, 'accuracy_aihwkit':accuracy})
 
-    if config.inferemce.platform.memtorch:
+    if config.inference.platform.memtorch.use:
         """
         unfinished
         """

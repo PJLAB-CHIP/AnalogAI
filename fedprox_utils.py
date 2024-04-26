@@ -9,16 +9,11 @@ from torch.optim import lr_scheduler
 import torch.nn as nn
 
 from utils import create_optimizer
+from earlystopping import EarlyStopping
 
 
 
 class Client:
-    """
-    get_sample_number: return the number of data for current client
-    train: (local)
-    local_test: (local)
-    """
-
     def __init__(self, 
                  client_idx:int,
                  train_data:DataLoader, 
@@ -45,12 +40,13 @@ class Client:
                                         config.training.optimizer, 
                                         config.recovery.optimizer.sam, 
                                         config.recovery.optimizer.adaptive)
-        
+
         self.pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer,
                                                       factor=0.5,
                                                       patience=10,
                                                       verbose=True)
         self.criterion = nn.CrossEntropyLoss()
+        self.early_stopping = EarlyStopping(patience=20, verbose=True)
 
     def get_sample_number(self):
         return len(self.train_data.dataset)
@@ -73,7 +69,7 @@ class Client:
         
 
     def local_test(self):
-        test_data = self.local_test_data
+        test_data = self.validation_data
         metrics = self.model_trainer.test(self.model, test_data, self.device, self.args)
         return metrics
 

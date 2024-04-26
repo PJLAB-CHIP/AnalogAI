@@ -31,34 +31,31 @@ class EarlyStopping:
 
         score = accuracy
 
-        if client_idx == -1:
-            if self.best_score is None:
-                self.best_score = score
-                self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
-            elif score < self.best_score:
-                self.counter += 1
-                print(
-                    f'EarlyStopping counter: {self.counter} out of {self.patience}'
-                )
-                if self.counter >= self.patience:
-                    self.early_stop = True
-            else:
-                self.best_score = score
-                self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
-                self.counter = 0
-        else:
+        if self.best_score is None:
+            self.best_score = score
             self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
+        elif score < self.best_score:
+            self.counter += 1
+            print(
+                f'EarlyStopping counter: {self.counter} out of {self.patience}'
+            )
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
+            self.counter = 0
         return self.best_score
 
     def save_checkpoint(self, accuracy, model, epoch, client_idx, model_name, save_path):
         '''Saves model when validation loss decrease.'''
-        if self.verbose and client_idx == -1:
+        if self.verbose :
             print(
                 f'Best accuracy increased ({self.accuracy_min:.6f} --> {accuracy:.6f}).  Saving model ...'
             )
-        if client_idx == -1:
-            torch.save(
-                model,
-                join(save_path,'{}_client_{}_round_{}_{:.6f}.pth.tar'.format(model_name,client_idx,epoch, accuracy))
-            )
+        os.makedirs(save_path,exist_ok=True)
+        torch.save(
+            model,
+            join(save_path,'{}_client_{}_round_{}_{:.6f}.pth.tar'.format(model_name,client_idx,epoch, accuracy))
+        )
         self.accuracy_min = accuracy

@@ -131,6 +131,8 @@ def parse_option():
     parser.add_argument('-sram_analog_recover',default=False, type=bool, help='whether to recover on an analog platform')
     parser.add_argument('-analog_infer',default=False, type=bool, help='whether to infer on an analog platform')
     parser.add_argument('--config', type=str, default='client_5_noise_0-0.1_T_T.yml', help='Path to the config file')
+    parser.add_argument('--use_momentum', type=bool, default=False, help='whether to use momentum when update client model')
+    parser.add_argument('--use_foundation_model', type=bool, default=False, help='whether to use foundation model')
 
     opt = parser.parse_args()
 
