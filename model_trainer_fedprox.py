@@ -139,8 +139,9 @@ class FedProxTrainer(object):
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            wandb.log({f'accuracy_{client_idx}':accuracy, f'train_loss_{client_idx}':train_loss, f'valid_loss_{client_idx}':valid_loss})
-            # wandb.log({'epoch':epoch, f'accuracy_{client_idx}':accuracy, f'train_loss_{client_idx}':train_loss, f'valid_loss_{client_idx}':valid_loss})
+            if config.use_wandb:
+                wandb.log({f'accuracy_{client_idx}':accuracy, f'train_loss_{client_idx}':train_loss, f'valid_loss_{client_idx}':valid_loss})
+                # wandb.log({'epoch':epoch, f'accuracy_{client_idx}':accuracy, f'train_loss_{client_idx}':train_loss, f'valid_loss_{client_idx}':valid_loss})
         return model, optimizer
     
     def test(self,

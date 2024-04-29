@@ -133,6 +133,7 @@ def parse_option():
     parser.add_argument('--config', type=str, default='client_5_noise_0-0.1_T_T.yml', help='Path to the config file')
     parser.add_argument('--use_momentum', type=bool, default=False, help='whether to use momentum when update client model')
     parser.add_argument('--use_foundation_model', type=bool, default=False, help='whether to use foundation model')
+    parser.add_argument('--use_wandb', type=bool, default=False, help='whether to use wandb')
 
     opt = parser.parse_args()
 

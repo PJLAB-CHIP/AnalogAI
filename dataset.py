@@ -57,7 +57,7 @@ class load_dataset():
                     root='./data',split='test',download=True,transform=transform)
 
         train_data = torch.utils.data.DataLoader(
-                trainset, batch_size=self.BATCH_SIZE, shuffle=True, num_workers=1)
+                trainset, batch_size=self.BATCH_SIZE, shuffle=True, num_workers=0)
         validation_data = torch.utils.data.DataLoader(
-                testset, batch_size=self.BATCH_SIZE, shuffle=False, num_workers=1)
+                testset, batch_size=self.BATCH_SIZE, shuffle=False, num_workers=0)
         return train_data, validation_data

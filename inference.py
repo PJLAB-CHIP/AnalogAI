@@ -8,19 +8,21 @@ train.py
 
 # Imports
 import os
-
-from altair import value
+import csv
+from altair import param, value
 os.environ['WANDB_API_KEY'] = 'cfb5ba8f1bb02b39b518c24874b8579617459db3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 from tqdm import tqdm
 import re
+import pandas as pd
 # import timm
 import numpy as np
 # Imports from PyTorch.
 import torch
 from torch import nn, device, no_grad, save
 from torch import max as torch_max
+from transformers import ViTModel
 # Imports from networks.
 
 from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, vit
@@ -58,8 +60,8 @@ with open(config_dir + args.config, 'r') as f:
 config = dict2namespace(config)
 
 # Device to use
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = config.training.device
 # Path to store datasets
 data_dir = os.path.join(os.getcwd(), "data", config.data.dataset)
 
@@ -75,12 +77,44 @@ elif config.training.client_num_in_total == 10:
     max_noise_intensity = config.recovery.noise_9.act_inject.sigma
     _max_noise_intensity = config.recovery.noise_9.weight_inject.level
 
-basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
-# save_dir = os.path.join('./save_model/',basic_dir,'client_4')
-save_dir = os.path.join('./save_model/',basic_dir)
+EXP_BASIC = True # TODO:是否进行基础实验
 
-model_path = config.data.architecture + '.pth'
-save_path = os.path.join(save_dir, model_path)
+if EXP_BASIC:
+    basic_dir = (args.config).split('.')[0]
+    save_dir = os.path.join('./save_model/',basic_dir,'client_0_0.0_0.1')
+    result_dict = {
+        'Name': args.config,
+        'Model': config.data.architecture,
+        'Dataset': config.data.dataset,
+    }
+else:
+    basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+    save_path = os.path.join('./save_model/',basic_dir)
+    client_name = 'client_4_0.20_0.1'
+    if (args.config).split('_')[-1] == 'T.yml':
+        save_dir = save_path
+        current_act_intensity = None
+        current_weight_intensity = None
+    else:
+        save_dir = save_path
+        # save_dir = os.path.join(save_path, client_name) # TODO: 修改client inference
+        current_act_intensity = float(client_name.split('_')[-2])
+        current_weight_intensity = float(client_name.split('_')[-1])
+    result_dict = {
+        'Model': config.data.architecture,
+        'Dataset': config.data.dataset,
+        'Use FL':config.training.use_fl,
+        'Cient Num': config.training.client_num_in_total,
+        'Act Inject': config.recovery.noise_0.act_inject.use,
+        'Weight Inject': config.recovery.noise_0.weight_inject.use,
+        'Min Act Intensity': min_noise_intensity,
+        'Max Act Intensity': max_noise_intensity,
+        'Min Weight Intensity': _min_noise_intensity,
+        'Max Weight Intensity': _max_noise_intensity,
+        'Current Act Intensity': current_act_intensity,
+        'Current Weight Intensity': current_weight_intensity,
+        'Trick':'fused model:client_0_0_0.1'
+    }
 
 # Training parameters
 random_seed = 2024
@@ -160,7 +194,7 @@ def main():
     elif config.data.architecture == 'resnet18':
         model = resnet.ResNet18()
     elif config.data.architecture == 'vit':
-        model = vit.ViT()
+        model = ViTModel()
 
     model.to(device)   
     criterion = nn.CrossEntropyLoss().cuda()
@@ -181,12 +215,34 @@ def main():
     # model.load_state_dict(converted_weights)
 
     #----load existing model---------
-    model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/vgg16_cifar10_client_5_epoch_1_True_False_noise_0.0_0.2_0.1_0.1_False/client_2/vgg16_client_2_round_10_80.650000.pth.tar'))
+    print('save_dir:', save_dir)
+    best_model = get_best_model(save_dir=save_dir)
+    print('best_model:', best_model)
+    if os.path.exists(os.path.join(save_dir, best_model)):
+        print('==> loading existing model')
+        model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
 
-    # best_model = get_best_model(save_dir=save_dir)
-    # if os.path.exists(os.path.join(save_dir, best_model)):
-    #     print('==> loading existing model')
-    #     model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
+
+    """(test): aggregate"""
+    # submodel_folder = os.listdir(save_dir)
+    # submodel_list = []
+    # for submodel_name in submodel_folder:
+    #     _save_dir = os.path.join(save_dir,submodel_name)
+    #     best_model = get_best_model(save_dir=_save_dir)
+    #     if os.path.exists(os.path.join(_save_dir, best_model)):
+    #         print('==> loading existing model')
+    #         submodel_list.append(torch.load(os.path.join(_save_dir, best_model)))
+    # model = resnet.ResNet18()
+    # model = model.to(device=device)
+    # model_params = {}
+    # for submodel in submodel_list:
+    #     for name,param in submodel.items():
+    #         if name not in model_params:
+    #             model_params[name] = 0.2*param
+    #         else:
+    #             model_params[name] += 0.2*param
+    # model.load_state_dict(model_params)
+    """ [test end] """
 
     """(optional): data parallel"""
     # if torch.cuda.device_count() > 1:
@@ -213,19 +269,31 @@ def main():
                 _, _, error, accuracy = test_evaluation(
                                 validation_data, infer_model_sram, criterion, device
                             )
+                result_dict[f'SRAM_{p}_{e}'] = accuracy
                 print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' parallelism:{p:.4f}' + f' error:{e:.4f}')
                 # wandb.log({'parallelis_sram':p, 'error_sram':e, 'accuracy_sram':accuracy})
 
     if config.inference.platform.aihwkit.use:
         print("==> inferencing on IBM") 
-        w = np.linspace(0., 0.1, num=20, endpoint=True)
+        w = np.linspace(0., 0.2, num=10, endpoint=True)
         for n_w in w:
             infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(model)
             _, _, error, accuracy = test_evaluation(
                             validation_data, infer_model_aihwkit, criterion, device
                         )
+            result_dict[f'AIHWKIT_{n_w}'] = accuracy
             print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
             # wandb.log({'w_noise_aihwkit':n_w, 'error_aihwkit':error, 'accuracy_aihwkit':accuracy})
+    
+    result_file_path = f'./result/{config.data.dataset}_{config.data.architecture}_result_basic.csv'
+    is_file_exists = os.path.isfile(result_file_path)
+    with open(result_file_path,'a',newline='') as file:
+        writer = csv.DictWriter(file,fieldnames=result_dict.keys())
+        if not is_file_exists:
+            writer.writeheader()
+    with open(result_file_path,'a',newline='') as file:
+        writer = csv.DictWriter(file,fieldnames=result_dict.keys())
+        writer.writerow(result_dict)
 
     if config.inference.platform.memtorch.use:
         """
