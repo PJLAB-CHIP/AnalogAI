@@ -347,38 +347,26 @@ def FGSM(image, epsilon, data_grad):
     perturbed_image.requires_grad = True
     return perturbed_image
 
-def PGD(model, images, labels, loss_fn, epsilon, step_size, num_steps):
+def PGD(model, images, labels, loss_fn, epsilon, alpha, num_steps):
     # Set the model to evaluation mode
-    model.eval()
-    perturbed_images = images.clone().detach()
-    perturbed_images.requires_grad = True
+    # model.eval()
+    # perturbed_images = images.clone().detach()
+    # perturbed_images.requires_grad = True
+    original_images = images.clone().detach()
+    images = images + torch.randn_like(images) * epsilon
+    images = torch.clamp(images, 0, 1)
 
-    for _ in range(num_steps):
-        # Forward pass
-        outputs = model(perturbed_images)
-
-        # Calculate the loss
-        loss = loss_fn(outputs, labels)
-
-        # Zero gradients
+    for i in range(num_steps):
+        images.requires_grad = True
+        outputs = model(images)
         model.zero_grad()
-
-        # Backward pass to calculate gradients
+        loss = loss_fn(outputs, labels)
         loss.backward()
-
-        # Collect the element-wise sign of the data gradient
-        data_grad = perturbed_images.grad.data.sign()
-
-        # Update perturbed image with small step in the direction of the gradient
-        perturbed_images = perturbed_images + step_size * data_grad
-
-        # Clip perturbed image values to be within the valid range [original_image - epsilon, original_image + epsilon]
-        perturbed_images = torch.max(torch.min(perturbed_images, images + epsilon), images - epsilon)
-        perturbed_images = torch.clamp(perturbed_images, 0, 1).detach()  # Detach to avoid gradient accumulation
-        # Re-enable gradients for the next iteration
-        perturbed_images.requires_grad = True   
-
-    return perturbed_images
+        adv_images = images + alpha * images.grad.sign()
+        eta = torch.clamp(adv_images - original_images, min=-epsilon, max=epsilon)
+        images = torch.clamp(original_images + eta, min=0, max=1).detach_()
+    
+    return images
     
 
 def train_step(train_data, 
@@ -463,21 +451,25 @@ def train_step(train_data,
 
                 output_perturbed = model(perturbed_data)
                 loss_perturbed = criterion(output_perturbed, labels)
+                loss += 0.2*loss_perturbed
                 optimizer.zero_grad()
-                loss_perturbed.backward()
+                loss.backward()
                 
             elif config.recovery.adversarial.PGD.use:
                 print('config.recovery.adversarial.PGD.use')
+                output = model(images)
+                loss = criterion(output, labels)
                 perturbed_data = PGD(model, 
                                      images, 
                                      labels, 
                                      criterion, 
                                      epsilon=config.recovery.adversarial.PGD.epsilon,
-                                     step_size=config.recovery.adversarial.PGD.alpha,
+                                     alpha=config.recovery.adversarial.PGD.alpha,
                                      num_steps=config.recovery.adversarial.PGD.num_steps, )
                 perturbed_data.requires_grad = True
                 output = model(perturbed_data)
-                loss = criterion(output, labels)
+                loss_perturbed = criterion(output, labels)
+                loss += 0.05*loss_perturbed
 
                 if config.training.use_fl:
                     """(optional): add proximal term"""
