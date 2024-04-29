@@ -297,14 +297,14 @@ class AnalogSram2d(Function):
     SRAM Simulation Computing Platform for Error Modeling
     '''
     @staticmethod
-    def forward(ctx, output, K, C_in, C_out, groups=1, parallelism=64, error_range=4) -> torch.Any:
+    def forward(ctx, output, K, C_in, C_out, groups=1, parallelism=64, error_range=0.01) -> torch.Any:
         col = K * C_in * C_out // groups
         errors_per_output_element = math.ceil(col / parallelism)
         
         # Generate all random errors at once
         total_error_shape = (errors_per_output_element,) + output.shape
         # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
-        total_errors = torch.normal(0, error_range, total_error_shape, device=output.device)
+        total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
@@ -409,7 +409,7 @@ class AnalogSramLinear(Function):
         # Generate all random errors at once
         total_error_shape = (errors_per_output_element,) + output.shape
         # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
-        total_errors = torch.normal(0, error_range, total_error_shape, device=output.device)
+        total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
