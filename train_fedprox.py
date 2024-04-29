@@ -13,6 +13,7 @@ os.chdir(script_dir)
 os.environ['WANDB_API_KEY'] = 'cfb5ba8f1bb02b39b518c24874b8579617459db3'
 # os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+from transformers import ViTModel
 # import timm
 import numpy as np
 # Imports from PyTorch.
@@ -34,7 +35,6 @@ from args import parse_option
 import argparse
 import yaml
 import wandb
-wandb.login()
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -47,6 +47,9 @@ def dict2namespace(config):
     return namespace
 
 args = parse_option()
+
+if args.use_wandb:
+    wandb.login()
 
 config_dir = './exp/'
 with open(config_dir + args.config, 'r') as f:
@@ -73,7 +76,13 @@ elif config.training.client_num_in_total == 10:
     max_noise_intensity = config.recovery.noise_9.act_inject.sigma
     _max_noise_intensity = config.recovery.noise_9.weight_inject.level
 
-basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+EXP_BASIC = True # TODO:是否进行基础实验
+if EXP_BASIC:
+    basic_dir = (args.config).split('.')[0]
+else:
+    asic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+
+
 save_dir = './save_model/' + basic_dir
 model_path = config.data.architecture + '.pth'
 save_path = os.path.join(save_dir, model_path)
@@ -93,6 +102,7 @@ early_stopping = EarlyStopping(patience=20, verbose=True)
 def main():
     args.use_fl = config.training.use_fl
     args.client_num_in_total = config.training.client_num_in_total
+    config.use_wandb = args.use_wandb
     """Train a PyTorch CNN analog model with dataset (eg. CIFAR10)."""
     # Make sure the directory where to save the results exist.
     # Results include: Loss vs Epoch graph, Accuracy vs Epoch graph and vector data.
@@ -116,12 +126,16 @@ def main():
     elif config.data.architecture == 'resnet18':
         global_model = resnet.ResNet18()
     elif config.data.architecture == 'vit':
-        global_model = vit.ViT()
+        global_model = ViTModel()
+    elif config.data.architecture == 'mobileNet':
+        global_model = mobileNetv2.MobileNetV2()
     if args.use_foundation_model:
         global_model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/vgg11_cifar10_client_1_epoch_5_False_False_noise_0.1_0.5_0.1_0.1_False/client_0/vgg11_client_0_round_11_90.050000.pth.tar'))
     global_model.to(device)
+
     # if torch.cuda.device_count() > 1:
     #     global_model = nn.DataParallel(global_model)
+
     w_global = model_trainer.get_model_params(global_model)
 
     """part2: client model"""
@@ -135,11 +149,15 @@ def main():
             model = resnet.ResNet18()
         elif config.data.architecture == 'vit':
             model = vit.ViT()
+        elif config.data.architecture == 'mobileNet':
+            model = mobileNetv2.MobileNetV2()
+        # if torch.cuda.device_count() > 1:
+        #     model = nn.DataParallel(model)
         model_trainer.set_model_params(model,w_global)
         local_models.append(model)
-    
-    wandb.init(project="AnalogAI", config=config)
-    wandb.run.name  = basic_dir
+    if args.use_wandb:
+        wandb.init(project="AnalogAI", config=config)
+        wandb.run.name  = basic_dir
     
     config.save_dir = save_dir
     fedproxAPI = FedProxAPI_personal(train_data=train_data,
