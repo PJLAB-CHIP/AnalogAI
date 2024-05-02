@@ -299,17 +299,18 @@ class AnalogSram2d(Function):
     @staticmethod
     def forward(ctx, output, K, C_in, C_out, groups=1, parallelism=64, error_range=0.01) -> torch.Any:
         col = K * C_in * C_out // groups
-        errors_per_output_element = math.ceil(col / parallelism)
+        # errors_per_output_element = math.ceil(col / parallelism)
         
         # Generate all random errors at once
-        total_error_shape = (errors_per_output_element,) + output.shape
-        # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
-        total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
+        # total_error_shape = (errors_per_output_element,) + output.shape
+
+        total_errors = torch.normal(0, error_range*output, output.shape, device=output.device)
+        # total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
         # Sum up all errors and reshape to match the output shape
-        total_errors = total_errors.sum(dim=0)
+        # total_errors = total_errors.sum(dim=0)
 
         output += total_errors
         total_errors=0
@@ -404,17 +405,20 @@ class AnalogSramLinear(Function):
         """
         # Generate and sum up all random errors, then add to the output
         weight_rows = w_input.shape[0]
-        errors_per_output_element = math.ceil(weight_rows / parallelism)
+        # errors_per_output_element = math.ceil(weight_rows / parallelism)
         
         # Generate all random errors at once
-        total_error_shape = (errors_per_output_element,) + output.shape
+        # total_error_shape = (errors_per_output_element,) + output.shape
+
+
         # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
-        total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
+        # total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
+        total_errors = torch.normal(0, error_range*output, output.shape, device=output.device)
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
         # Sum up all errors and reshape to match the output shape
-        total_errors = total_errors.sum(dim=0)
+        # total_errors = total_errors.sum(dim=0)
 
         output += total_errors
         total_errors=0
