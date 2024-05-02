@@ -131,6 +131,15 @@ class FedProxAPI_personal(object):
                 f"Valid loss: {valid_loss:.4f}\t"
                 f"Test error: {error:.2f}%\t"
                 f"Test accuracy: {accuracy:.2f}%\t")
+
+                if self.config.inference.platform.aihwkit.use:
+                    print("==> inferencing on IBM(global)") 
+                    infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(client.model)
+                    _, _, error_aihwkit, accuracy_aihwkit = self.model_trainer.test(
+                                    self.validation_data, infer_model_aihwkit, nn.CrossEntropyLoss(), self.device
+                                )
+                    print(f'Test accuracy aihwkit global: {accuracy_aihwkit}')
+
                 client.early_stopping(
                     accuracy,
                     client.model.state_dict(),
@@ -141,19 +150,19 @@ class FedProxAPI_personal(object):
                 )
             
             """(optional) online learning"""
-            acc_locals = [] # record acc tested on the analog computing platform
-            # (optional): test on the analog computing platform --> update client's weight
-            if self.config.inference.platform.aihwkit.use:
-                for idx, client in enumerate(self.client_list):
-                    print("==> inferencing on IBM") 
-                    infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(client.model)
-                    _, _, error, accuracy = self.model_trainer.test(
-                                    self.validation_data, infer_model_aihwkit, nn.CrossEntropyLoss(), self.device
-                                )
-                    if self.args.use_wandb:
-                        wandb.log({f'accuracy_aihwkit_{idx}':accuracy})
-                    print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
-                    acc_locals.append(accuracy)
+            # acc_locals = [] # record acc tested on the analog computing platform
+            # # (optional): test on the analog computing platform --> update client's weight
+            # if self.config.inference.platform.aihwkit.use:
+            #     for idx, client in enumerate(self.client_list):
+            #         print("==> inferencing on IBM") 
+            #         infer_model_aihwkit = infer_aihwkit(forward_w_noise=n_w).patch(client.model)
+            #         _, _, error, accuracy = self.model_trainer.test(
+            #                         self.validation_data, infer_model_aihwkit, nn.CrossEntropyLoss(), self.device
+            #                     )
+            #         if self.args.use_wandb:
+            #             wandb.log({f'accuracy_aihwkit_{idx}':accuracy})
+            #         print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
+            #         acc_locals.append(accuracy)
 
             if self.config.training.use_fl:
                 # step2.2: update global weights and local weights

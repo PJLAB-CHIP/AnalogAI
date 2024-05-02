@@ -14,8 +14,14 @@ import copy
 
 
 
-def convet_sram_op(module, layer_counter, device, a_bits=8, w_bits=8, backend='SRAM', parallelism=128,
-        error=4,):
+def convet_sram_op(module, 
+                   layer_counter, 
+                   device, 
+                   a_bits=8, 
+                   w_bits=8,
+                   backend='SRAM', 
+                   parallelism=128,
+                   error=4,):
     for name, child in module.named_children():      
         if isinstance(child, nn.Conv2d):
             layer_counter[0] += 1

@@ -16,6 +16,30 @@ from tqdm import tqdm
 from datetime import datetime
 from noise_inject import InjectForward, InjectWeight, InjectWeightNoise
 import argparse
+import os
+from transformers import ViTModel,ViTConfig
+
+def get_foundation_model(config):
+    models = os.listdir('./foundation_model')
+    for model_name in models:
+        architecture = model_name.split('_')[0]
+        dataset = model_name.split('_')[1]
+        if config.data.architecture == architecture and config.data.dataset == dataset:
+            print('foundation model:', model_name)
+            return os.path.join('./foundation_model',model_name)
+    raise ValueError(f'Do not exits foundation model for {config.data.architecture}_{config.data.dataset}')
+
+class CustomViTModel(nn.Module):
+    def __init__(self, vit_config):
+        super(CustomViTModel, self).__init__()
+        self.vit_model = ViTModel(vit_config)
+        self.fc = nn.Linear(768,10)
+        
+    def forward(self, input_tensor):
+        outputs = self.vit_model(input_tensor)
+        pool_output = outputs['pooler_output']
+        _pool_output = F.softmax(self.fc(pool_output),dim=1)
+        return _pool_output
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -429,7 +453,7 @@ def train_step(train_data,
         else:
             # Add training Tensor to the model (input).
             if config.recovery.adversarial.FGSM.use:
-                print('config.recovery.adversarial.FGSM.use')
+                # print('config.recovery.adversarial.FGSM.use')
                 images.requires_grad = True
                 output = model(images)
                 loss = criterion(output, labels)
@@ -456,7 +480,7 @@ def train_step(train_data,
                 loss.backward()
                 
             elif config.recovery.adversarial.PGD.use:
-                print('config.recovery.adversarial.PGD.use')
+                # print('config.recovery.adversarial.PGD.use')
                 output = model(images)
                 loss = criterion(output, labels)
                 perturbed_data = PGD(model, 

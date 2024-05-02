@@ -45,11 +45,13 @@ class EarlyStopping:
             self.best_score = score
             self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
             self.counter = 0
+        if epoch%5==0:
+            self.save_checkpoint(accuracy, model, epoch, client_idx, model_name, save_path)
         return self.best_score
 
     def save_checkpoint(self, accuracy, model, epoch, client_idx, model_name, save_path):
         '''Saves model when validation loss decrease.'''
-        if self.verbose :
+        if self.verbose:
             print(
                 f'Best accuracy increased ({self.accuracy_min:.6f} --> {accuracy:.6f}).  Saving model ...'
             )

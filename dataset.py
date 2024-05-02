@@ -9,27 +9,41 @@ import torchvision
 from torchvision import datasets, transforms
 import os
 from os.path import join,exists
+from torchvision import datasets, transforms, models
+from torchvision.transforms.functional import InterpolationMode
 
 class load_dataset():
     def __init__(self, PATH_DATASET, BATCH_SIZE, dataname) -> None:
           self.path = PATH_DATASET
           self.BATCH_SIZE = BATCH_SIZE
           self.dataname = dataname
-    def load_images(self):
+    def load_images(self,config):
         """Load images for train from torchvision datasets.
         Returns:
             Dataset, Dataset: train data and validation data"""
         if self.dataname == 'cifar10' :
-            transform_train = transforms.Compose([
+            if config.data.architecture == 'alexnet':
+                transform_train = transforms.Compose([
+                transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                ])
+                transform_test = transforms.Compose([
+                    transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                ])
+            else:
+                transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            ])
-            transform_test = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            ])
+                ])
+                transform_test = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                ])
             
             trainset = torchvision.datasets.CIFAR10(
                 root='./data', train=True, download=True, transform=transform_train)

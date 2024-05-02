@@ -33,6 +33,8 @@ from dataset import load_dataset
 from AnalogSram.convert_sram import convert_to_sram_prepare
 
 from args import parse_option
+from utils import get_foundation_model,CustomViTModel
+from transformers import ViTModel,ViTConfig
 
 
 # from call_inference import infer_memtorch, infer_aihwkit, infer_MNSIM
@@ -81,7 +83,8 @@ EXP_BASIC = True # TODO:是否进行基础实验
 
 if EXP_BASIC:
     basic_dir = (args.config).split('.')[0]
-    save_dir = os.path.join('./save_model/',basic_dir,'client_0_0.0_0.1')
+    # save_dir = os.path.join('./save_model/',basic_dir,'client_0_0.0_0.1')
+    save_dir = os.path.join('./save_model/',basic_dir)
     result_dict = {
         'Name': args.config,
         'Model': config.data.architecture,
@@ -90,7 +93,7 @@ if EXP_BASIC:
 else:
     basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
     save_path = os.path.join('./save_model/',basic_dir)
-    client_name = 'client_4_0.20_0.1'
+    client_name = 'client_0_0.0_0.1'
     if (args.config).split('_')[-1] == 'T.yml':
         save_dir = save_path
         current_act_intensity = None
@@ -171,10 +174,52 @@ def get_best_model(save_dir):
         match = re.search(pattern, model)
         if match:
             acc = float(match.group(0))
-            if acc>best_acc:
+            if acc>best_acc and acc<100:
                 best_acc = acc
                 best_model = model
     return best_model
+
+def select_model(config,state='client'):
+    if config.data.architecture == 'vgg11':
+        if config.data.dataset == 'mnist':
+            model = vgg.VGG('VGG11',in_channels=1)
+        elif config.data.dataset == 'cifar10':
+            model = vgg.VGG('VGG11',in_channels=3)
+    elif config.data.architecture == 'vgg16':
+        if config.data.dataset == 'mnist':
+            model = vgg.VGG('VGG16',in_channels=1)
+        elif config.data.dataset == 'cifar10':
+            model = vgg.VGG('VGG16',in_channels=3)
+    elif config.data.architecture == 'resnet18':
+        if config.data.dataset == 'mnist':
+            model = resnet.ResNet18(in_channels=1)
+        elif config.data.dataset == 'cifar10':
+            model = resnet.ResNet18(in_channels=3)
+    elif config.data.architecture == 'mobileNet':
+        if config.data.dataset == 'mnist':
+            model = mobileNetv2.MobileNetV2(in_channels=1)
+        elif config.data.dataset == 'cifar10':
+            model = mobileNetv2.MobileNetV2(in_channels=3)        
+    elif config.data.architecture == 'vit':
+        if config.data.dataset == 'mnist':
+            _in_channels = 1
+        elif config.data.dataset == 'cifar10':
+            _in_channels = 3
+        vit_config = ViTConfig(
+            num_channels= _in_channels,
+            image_size=32
+        )
+        model = CustomViTModel(vit_config=vit_config)
+        # model = vit.VisionTransformer(img_size=32,
+        #                             in_chans=_in_channels,
+        #                             num_classes=10,
+        #                             use_return_dict=False)
+    
+    if (args.config).split('_')[-1] != 'baseline.yml' and state == 'global':
+        foundation_model_path = get_foundation_model(config=config)
+        model.load_state_dict(torch.load(foundation_model_path))
+    return model
+
 
 
 def main():
@@ -184,17 +229,18 @@ def main():
 
     # Load datasets.
     dataset = load_dataset(data_dir, config.training.batch_size, config.data.dataset)
-    train_data, validation_data = dataset.load_images()
+    train_data, validation_data = dataset.load_images(config=config)
 
     #----Load the pytorch model------
-    if config.data.architecture == 'vgg11':
-        model = vgg.VGG('VGG11')
-    elif config.data.architecture == 'vgg16':
-        model = vgg.VGG('VGG16')
-    elif config.data.architecture == 'resnet18':
-        model = resnet.ResNet18()
-    elif config.data.architecture == 'vit':
-        model = ViTModel()
+    model = select_model(config=config)
+    # if config.data.architecture == 'vgg11':
+    #     model = vgg.VGG('VGG11')
+    # elif config.data.architecture == 'vgg16':
+    #     model = vgg.VGG('VGG16')
+    # elif config.data.architecture == 'resnet18':
+    #     model = resnet.ResNet18()
+    # elif config.data.architecture == 'vit':
+    #     model = ViTModel()
 
     model.to(device)   
     criterion = nn.CrossEntropyLoss().cuda()
@@ -221,7 +267,7 @@ def main():
     if os.path.exists(os.path.join(save_dir, best_model)):
         print('==> loading existing model')
         model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
-
+    # model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/done/resnet18_cifar10_client_5_epoch_1_True_False_noise_0.0_0.2_0.1_0.1_False/client_0_0_0.1/resnet18_client_0_round_10_86.120000.pth.tar'))
 
     """(test): aggregate"""
     # submodel_folder = os.listdir(save_dir)
@@ -258,7 +304,7 @@ def main():
     if config.inference.platform.sram.use:
         print("==> inferencing on SRAM") 
         ps = [16, 32, 64, 128]
-        es = np.linspace(100, 200, num=2, endpoint=True)
+        es = np.linspace(0, 0.05, num=6, endpoint=True)
         for p in ps:
             for e in es: 
                 infer_model_sram = convert_to_sram_prepare(model=model, 
