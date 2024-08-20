@@ -9,12 +9,14 @@ import torch.nn as nn
 import numpy as np
 
 class InjectForward():
-    def __init__(self, fault_type='normal_flu', arg1=0., arg2=0., layer_mask=None) -> None:
+    def __init__(self, fault_type='Gaussian', arg1=0., arg2=0., sigma_global=0.25, sigma_dict=None, layer_mask=None) -> None:
         # self.model = model
         self.fault_type = fault_type
         self.layer_mask = layer_mask
         self.arg1 = arg1 
         self.arg2 = arg2
+        self.sigma_global = sigma_global
+        self.sigma_dict = sigma_dict
         self.hook_list = []
         
     def default_hook( module, input, output):
@@ -43,11 +45,16 @@ class InjectForward():
     def get_hook(self, model, function=default_hook):
         mask = self.expand_mask(model)
         layers = self.get_layers(model)
-        for l,m in zip(layers, mask):
-            if m:
-                a = l.register_forward_hook(function)
-                self.hook_list.append(a)
-                
+        # for l,m in zip(layers, mask):
+        #     if m:
+        #         a = l.register_forward_hook(function)
+        #         self.hook_list.append(a)
+        for i, (layer, mask_value) in enumerate(zip(layers, mask)):
+            if mask_value:
+                sigma = self.sigma_dict.get(i, 1.0)
+                hook = layer.register_forward_hook(lambda module, input, output: function(module, input, output, self.sigma_global, sigma))
+                self.hook_list.append(hook)
+
     def __call__(self, model):
         
         def normal_fluction(module, input, output):          ## Gaussian noise 
@@ -66,9 +73,18 @@ class InjectForward():
             output = torch.mul(w,uniform)
             return output
         
+        def negative_fluction(self, module, input, output, sigma_global, sigma_neg):
+            mean, sigma  = self.arg1, self.arg2
+            noise_client = torch.randn_like(output) * sigma + mean
+            # Subtract larger Gaussian noise (sigma * 2 for example)
+            noise_neg = torch.randn_like(output) * (sigma_global * sigma_neg) + mean
+            output = output * noise_client - output * noise_neg
+            return output
+
         self.fault_types = { #choose types
-            'uniform'        :uniform_fluction,
-            'Gaussian'         :normal_fluction,
+            'uniform':uniform_fluction,
+            'Gaussian':normal_fluction,
+            'Negative Feedback': negative_fluction
             }
         self.get_hook(model, self.fault_types[self.fault_type])
         
