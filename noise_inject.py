@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from functools import partial
+from sensibility_utils import assign_coefficients_to_layers
 
 def negative_fluction(output, sigma, mean, sigma_global, sigma_neg):
     # print(sigma, mean, sigma_global, sigma_neg)
@@ -36,24 +37,37 @@ class InjectForward():
         print('output',output)
         return output
         
+    # def get_layers(self, model):
+    #     real_layers=[]
+    #     layers = list(model.modules())
+    #     for layer in layers:
+    #         if len(list(layer.children()))==0 and len(list(layer.parameters())) :
+    #                 real_layers.append(layer)
+    #         if len(list(layer.children())) and len(list(list(layer.children())[0].parameters()))==0  and len(list(layer.parameters())):
+    #                 real_layers.append(layer)
+    #     return real_layers
+    
     def get_layers(self, model):
-        real_layers=[]
-        layers = list(model.modules())
-        for layer in layers:
-            if len(list(layer.children()))==0 and len(list(layer.parameters())) :
-                    real_layers.append(layer)
-            if len(list(layer.children())) and len(list(list(layer.children())[0].parameters()))==0  and len(list(layer.parameters())):
-                    real_layers.append(layer)
+        real_layers={}
+        # print(list(model.named_modules()))
+        # print('------------------------')
+        # print(list(model.modules()))
+        for name, layer in model.named_modules():
+            if isinstance(layer, (nn.Conv2d, nn.Linear, nn.BatchNorm2d, nn.BatchNorm1d)):
+                real_layers[name] = layer
         return real_layers
     
     def expand_mask(self, model):          
         layers = self.get_layers(model)
         if(self.layer_mask is None):
-            self.layer_mask = 1+np.zeros(len(layers), dtype='bool')
+            self.layer_mask = 1+np.zeros(len(layers.keys()), dtype='bool')
         new_mask = self.layer_mask
         return new_mask
     
     def get_hook(self, model, function=default_hook):
+        layer_counter, coefficients = assign_coefficients_to_layers(model)
+        print('@@@--->', layer_counter)
+        print('###--->', coefficients)
         mask = self.expand_mask(model)
         layers = self.get_layers(model)
         # for l,m in zip(layers, mask):
@@ -69,19 +83,19 @@ class InjectForward():
                 # else:
                 #     hook_function = function
                 print(function.__name__)
-                print("?????????", layer.forward, hasattr(layer, "_orig_forward"))
+                print("?????????", layers[layer].forward, hasattr(layers[layer], "_orig_forward"))
                 # first inject forward, set init forward to layer forward
-                if not hasattr(layer, "_orig_forward"):
-                    layer._init_forward = layer.forward
+                if not hasattr(layers[layer], "_orig_forward"):
+                    layers[layer]._init_forward = layers[layer].forward
                     print("@@@@@ --->  init forward")
-                assert hasattr(layer, "_init_forward")
+                assert hasattr(layers[layer], "_init_forward")
                 
-                layer._orig_forward = layer._init_forward
+                layers[layer]._orig_forward = layers[layer]._init_forward
                 def _new_foward(m, x):
                     result = m._orig_forward(x)
-                    negative_fluction(result, self.arg1, self.arg2, self.sigma_global, sigma_neg)
+                    negative_fluction(result, self.arg1, self.arg2, self.sigma_global, coefficients[layer])
                     return result
-                layer.forward = MethodType(_new_foward, layer)
+                layers[layer].forward = MethodType(_new_foward, layers[layer])
                 # hook = layer.register_forward_hook(function, with_kwargs={"mean": self.arg1, "sigma": self.arg2, 
                 #                                                             "sigma_global": self.sigma_global, 
                 #                                                             "sigma_neg" : sigma_neg})
