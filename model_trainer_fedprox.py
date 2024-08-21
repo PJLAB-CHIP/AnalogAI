@@ -87,17 +87,19 @@ class FedProxTrainer(object):
             config.recovery.noise = config.recovery.noise_8
         elif client_idx == 9:
             config.recovery.noise = config.recovery.noise_9
-        
+        print('@@@@----->',model)   
         print(config.recovery.noise)
         # Train model
         for epoch in range(0, config.training.epochs):
             # Train_step
             if  config.recovery.noise.act_inject.use:
                 print('====>inject forward noise<====')
-                noise_a = InjectForward(config.recovery.noise.act_inject.type, 
-                                        config.recovery.noise.act_inject.mean, 
-                                        config.recovery.noise.act_inject.sigma, 
-                                        config.recovery.noise.act_inject.mask)
+                noise_a = InjectForward(fault_type=config.recovery.noise.act_inject.type, 
+                                        arg1=config.recovery.noise.act_inject.mean, 
+                                        arg2=config.recovery.noise.act_inject.sigma,
+                                        sigma_global=0.25,
+                                        sigma_dict=None,
+                                        layer_mask=config.recovery.noise.act_inject.mask)
             else:
                 noise_a = None
                 

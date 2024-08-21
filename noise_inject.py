@@ -4,9 +4,19 @@ created on 10.26
 version: 1.0
 noise_inject.py
 """
+from types import MethodType
 import torch
 import torch.nn as nn
 import numpy as np
+from functools import partial
+
+def negative_fluction(output, sigma, mean, sigma_global, sigma_neg):
+    # print(sigma, mean, sigma_global, sigma_neg)
+    noise_client = torch.randn_like(output) * sigma + mean
+    # Subtract larger Gaussian noise (sigma * 2 for example)
+    noise_neg = torch.randn_like(output) * (sigma_global * sigma_neg) + mean
+    output = output * noise_client - output * noise_neg
+    return output
 
 class InjectForward():
     def __init__(self, fault_type='Gaussian', arg1=0., arg2=0., sigma_global=0.25, sigma_dict=None, layer_mask=None) -> None:
@@ -18,6 +28,7 @@ class InjectForward():
         self.sigma_global = sigma_global
         self.sigma_dict = sigma_dict
         self.hook_list = []
+        self.sigma_neg = 1.0
         
     def default_hook( module, input, output):
         print('hook',module)
@@ -51,9 +62,32 @@ class InjectForward():
         #         self.hook_list.append(a)
         for i, (layer, mask_value) in enumerate(zip(layers, mask)):
             if mask_value:
-                sigma = self.sigma_dict.get(i, 1.0)
-                hook = layer.register_forward_hook(lambda module, input, output: function(module, input, output, self.sigma_global, sigma))
-                self.hook_list.append(hook)
+                # sigma = self.sigma_dict.get(i, 1.0)
+                sigma_neg = 1.0 # TODO: 暂时设置为固定值
+                # if self.fault_type == 'Negative Feedback':
+                #     hook_function = partial(function, sigma_global=self.sigma_global, sigma_neg=sigma_neg)
+                # else:
+                #     hook_function = function
+                print(function.__name__)
+                print("?????????", layer.forward, hasattr(layer, "_orig_forward"))
+                # first inject forward, set init forward to layer forward
+                if not hasattr(layer, "_orig_forward"):
+                    layer._init_forward = layer.forward
+                    print("@@@@@ --->  init forward")
+                assert hasattr(layer, "_init_forward")
+                
+                layer._orig_forward = layer._init_forward
+                def _new_foward(m, x):
+                    result = m._orig_forward(x)
+                    negative_fluction(result, self.arg1, self.arg2, self.sigma_global, sigma_neg)
+                    return result
+                layer.forward = MethodType(_new_foward, layer)
+                # hook = layer.register_forward_hook(function, with_kwargs={"mean": self.arg1, "sigma": self.arg2, 
+                #                                                             "sigma_global": self.sigma_global, 
+                #                                                             "sigma_neg" : sigma_neg})
+                # hook = layer.register_forward_hook(lambda module, input, output: hook_function(module, input, output))
+                # hook = layer.register_forward_hook(lambda module, input, output: function(module, input, output, self.sigma_global, self.sigma_neg))
+                # self.hook_list.append(hook)
 
     def __call__(self, model):
         
@@ -73,13 +107,21 @@ class InjectForward():
             output = torch.mul(w,uniform)
             return output
         
-        def negative_fluction(self, module, input, output, sigma_global, sigma_neg):
-            mean, sigma  = self.arg1, self.arg2
-            noise_client = torch.randn_like(output) * sigma + mean
-            # Subtract larger Gaussian noise (sigma * 2 for example)
-            noise_neg = torch.randn_like(output) * (sigma_global * sigma_neg) + mean
-            output = output * noise_client - output * noise_neg
-            return output
+        # def negative_fluction(self, module, input, output):
+        #     mean, sigma  = self.arg1, self.arg2
+        #     noise_client = torch.randn_like(output) * sigma + mean
+        #     # Subtract larger Gaussian noise (sigma * 2 for example)
+        #     noise_neg = torch.randn_like(output) * (sigma_global * sigma_neg) + mean
+        #     output = output * noise_client - output * noise_neg
+        #     return output
+        
+        # def negative_fluction(self, module, input, output, sigma_global, sigma_neg):
+        #     mean, sigma  = self.arg1, self.arg2
+        #     noise_client = torch.randn_like(output) * sigma + mean
+        #     # Subtract larger Gaussian noise (sigma * 2 for example)
+        #     noise_neg = torch.randn_like(output) * (sigma_global * sigma_neg) + mean
+        #     output = output * noise_client - output * noise_neg
+        #     return output
 
         self.fault_types = { #choose types
             'uniform':uniform_fluction,

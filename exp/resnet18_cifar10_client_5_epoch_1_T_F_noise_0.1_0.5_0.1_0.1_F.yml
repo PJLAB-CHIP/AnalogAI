@@ -18,12 +18,13 @@ training:
   grad_clip: 1.0
   client_num_in_total: 5
   use_fl: false
+  device: "cuda"
 
 recovery:
   noise_0: 
     act_inject:
       use: True
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       mean: 1.0
       sigma: 0.10
       mask: None
@@ -31,14 +32,14 @@ recovery:
       mul: True
     weight_inject: 
       use: false
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       add: false
       mul: True
       level: 0.1
   noise_1: 
     act_inject:
       use: True
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       mean: 1.0
       sigma: 0.20
       mask: None
@@ -46,14 +47,14 @@ recovery:
       mul: True
     weight_inject: 
       use: false
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       add: false
       mul: True
       level: 0.1
   noise_2: 
     act_inject:
       use: True
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       mean: 1.0
       sigma: 0.30
       mask: None
@@ -61,14 +62,14 @@ recovery:
       mul: True
     weight_inject: 
       use: false
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       add: false
       mul: True
       level: 0.1
   noise_3: 
     act_inject:
       use: True
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       mean: 1.0
       sigma: 0.40
       mask: None
@@ -76,14 +77,14 @@ recovery:
       mul: True
     weight_inject: 
       use: false
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       add: false
       mul: True
       level: 0.1
   noise_4: 
     act_inject:
       use: True
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       mean: 1.0
       sigma: 0.50
       mask: None
@@ -91,7 +92,7 @@ recovery:
       mul: True
     weight_inject: 
       use: false
-      type: "Gaussian" # "uniform"
+      type: "Negative Feedback" # "uniform"
       add: false
       mul: True
       level: 0.1
@@ -121,7 +122,7 @@ inference:
       use: false
       intensity: 200
     aihwkit:
-      use: True
+      use: false
       n_w: 0.02
     memtorch:
       use: false

@@ -196,9 +196,9 @@ def select_model(config,state='client'):
         #                             num_classes=10,
         #                             use_return_dict=False)
     
-    if (args.config).split('_')[-1] != 'baseline.yml' and state == 'global':
-        foundation_model_path = get_foundation_model(config=config)
-        model.load_state_dict(torch.load(foundation_model_path))
+    # if (args.config).split('_')[-1] != 'baseline.yml' and state == 'global':
+    #     foundation_model_path = get_foundation_model(config=config)
+    #     model.load_state_dict(torch.load(foundation_model_path))
     return model
 
 def main():
