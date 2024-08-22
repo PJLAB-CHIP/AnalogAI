@@ -19,7 +19,7 @@ from torchvision import datasets, transforms, models
 from torchvision.transforms.functional import InterpolationMode
 # import timm
 # from timm.models import vision_transformer as vit
-from timm.models import mlp_mixer as mlp
+# from timm.models import mlp_mixer as mlp
 import numpy as np
 # Imports from PyTorch.
 import torch
@@ -109,7 +109,7 @@ else:
 early_stopping = EarlyStopping(patience=20, verbose=True)
 
         
-def select_model(config,state='client'):
+def select_model(config,state='client',noise=None):
     if config.data.architecture == 'vgg11':
         if config.data.dataset == 'mnist':
             model = vgg.VGG('VGG11',in_channels=1)
@@ -122,9 +122,9 @@ def select_model(config,state='client'):
             model = vgg.VGG('VGG16',in_channels=3)
     elif config.data.architecture == 'resnet18':
         if config.data.dataset == 'mnist':
-            model = resnet.ResNet18(in_channels=1)
+            model = resnet.resnet18(in_channels=1,noise_backbone=noise)
         elif config.data.dataset == 'cifar10':
-            model = resnet.ResNet18(in_channels=3)
+            model = resnet.resnet18(in_channels=3,noise_backbone=noise)
     elif config.data.architecture == 'mobileNet':
         if config.data.dataset == 'mnist':
             model = mobileNetv2.MobileNetV2(in_channels=1)
@@ -225,7 +225,7 @@ def main():
 
     # step3: Model Definition
     """part1: global model"""
-    global_model = select_model(config=config,state='global')
+    global_model = select_model(config=config,state='global',noise=0)
     if args.use_foundation_model:
         global_model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/vgg11_cifar10_client_1_epoch_5_False_False_noise_0.1_0.5_0.1_0.1_False/client_0/vgg11_client_0_round_11_90.050000.pth.tar'))
     global_model.to(device)
@@ -238,7 +238,18 @@ def main():
     """part2: client model"""
     local_models = []
     for _ in range(args.client_num_in_total):
-        model = select_model(config=config)
+        if _ == 0:
+            config.recovery.noise = config.recovery.noise_0
+        elif _ == 1:
+            config.recovery.noise = config.recovery.noise_1
+        elif _ == 2:
+            config.recovery.noise = config.recovery.noise_2
+        elif _ == 3:
+            config.recovery.noise = config.recovery.noise_3
+        elif _ == 4:
+            config.recovery.noise = config.recovery.noise_4
+
+        model = select_model(config=config,noise=config.recovery.noise.act_inject.sigma)
 
         # if torch.cuda.device_count() > 1:
         #     model = nn.DataParallel(model)

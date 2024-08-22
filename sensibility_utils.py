@@ -38,6 +38,7 @@ def cosine_schedule(T, beta_min=0.05, beta_max=0.2, s=0.008):
     for t in range(1, T + 1):
         beta = min(1 - alphas[t] / alphas[t - 1], 0.999)
         betas.append(beta)
+    betas.reverse()
     
     betas = np.array(betas)
     
@@ -54,12 +55,12 @@ def counter_layer(model):
     return layer_counter
 
 
-def assign_coefficients_to_layers(model, min_value=0.05, max_value=0.2):
+def assign_coefficients_to_layers(model, min_value=0.5, max_value=1.5):
     coefficients = {}
 
     layer_counter = counter_layer(model)
     coefficients_schedule = cosine_schedule(layer_counter, min_value, max_value) #余弦
-    coefficients_schedule = generate_linear_schedule(layer_counter, min_value, max_value) #线性
+    # coefficients_schedule = generate_linear_schedule(layer_counter, min_value, max_value) #线性
 
     layer_idx = 0
     #layer_counter=counter_layer(model)
@@ -153,17 +154,18 @@ def assign_coefficients_to_layers(model, min_value=0.05, max_value=0.2):
 # #print(cosine_values)
 
 
-# 使用 ResNet-18 模型
-model = resnet.ResNet18(in_channels=1)
+if __name__ == '__main__':
+    # 使用 ResNet-18 模型
+    model = resnet.ResNet18(in_channels=1)
 
 
-layer_counter , coefficients = assign_coefficients_to_layers(model)
+    layer_counter , coefficients = assign_coefficients_to_layers(model)
 
 
-# 打印每一层及其对应的系数
-for layer_name, coefficient in coefficients.items():
-   print(f"Layer: {layer_name}, Coefficient: {coefficient}")
+    # 打印每一层及其对应的系数
+    for layer_name, coefficient in coefficients.items():
+        print(f"Layer: {layer_name}, Coefficient: {coefficient}")
 
 
-plt.plot(range(1, layer_counter+1), list(coefficients.values()), marker='o')
-plt.savefig('2.png')
+    plt.plot(range(1, layer_counter+1), list(coefficients.values()), marker='o')
+    plt.savefig('2.png')

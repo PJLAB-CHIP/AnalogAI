@@ -12,7 +12,7 @@ import torch
 # from memtorch.bh.nonideality.NonIdeality import apply_nonidealities
 #--------------------------------------------------------------
 #Import aihwkit-----------------------------------------------
-from aihwkit.optim import AnalogSGD
+# from aihwkit.optim import AnalogSGD
 from aihwkit.nn.conversion import convert_to_analog
 from aihwkit.simulator.presets import TikiTakaEcRamPreset
 from aihwkit.simulator.configs import MappingParameter, SingleRPUConfig, IOParameters, InferenceRPUConfig
