@@ -83,8 +83,8 @@ EXP_BASIC = True # TODO:是否进行基础实验
 
 if EXP_BASIC:
     basic_dir = (args.config).split('.')[0]
-    # save_dir = os.path.join('./save_model/',basic_dir,'client_2_0.1_0.1')
-    save_dir = os.path.join('./save_model/',basic_dir)
+    save_dir = os.path.join('./save_model/',basic_dir,'client_1_0.05_0.1')
+    # save_dir = os.path.join('./save_model/',basic_dir)
     result_dict = {
         'Name': args.config,
         'Model': config.data.architecture,
