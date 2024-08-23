@@ -1,0 +1,128 @@
+data:
+  project_name: "AnalogAI"
+  architecture: "resnet18"
+  dataset: "cifar10"
+  n_classes: 10
+  
+training: 
+  optimizer: "Adam"
+  batch_size: 256
+  lr: 0.001
+  weight_decay: 0.0005
+  momentum: 0.000000001
+  epochs: 1
+  warmup: 1000
+  beta1: 0.9
+  amsgrad: false
+  eps: 0.00000001
+  grad_clip: 1.0
+  client_num_in_total: 5
+  use_fl: false
+  device: "cuda"
+
+recovery:
+  noise_0: 
+    act_inject:
+      use: false
+      type: "Negative Feedback" # "uniform"
+      mean: 1.0
+      sigma: 0.0
+      mask: None
+      add: false
+      mul: True
+    weight_inject: 
+      use: false
+      type: "Negative Feedback" # "uniform"
+      add: false
+      mul: True
+      level: 0.1
+  noise_1: 
+    act_inject:
+      use: false
+      type: "Negative Feedback" # "uniform"
+      mean: 1.0
+      sigma: 0.05
+      mask: None
+      add: false
+      mul: True
+    weight_inject: 
+      use: false
+      type: "Negative Feedback" # "uniform"
+      add: false
+      mul: True
+      level: 0.1
+  noise_2: 
+    act_inject:
+      use: false
+      type: "Negative Feedback" # "uniform"
+      mean: 1.0
+      sigma: 0.10
+      mask: None
+      add: false
+      mul: True
+    weight_inject: 
+      use: false
+      type: "Negative Feedback" # "uniform"
+      add: false
+      mul: True
+      level: 0.1
+  noise_3: 
+    act_inject:
+      use: false
+      type: "Negative Feedback" # "uniform"
+      mean: 1.0
+      sigma: 0.15
+      mask: None
+      add: false
+      mul: True
+    weight_inject: 
+      use: false
+      type: "Negative Feedback" # "uniform"
+      add: false
+      mul: True
+      level: 0.1
+  noise_4: 
+    act_inject:
+      use: false
+      type: "Negative Feedback" # "uniform"
+      mean: 1.0
+      sigma: 0.20
+      mask: None
+      add: false
+      mul: True
+    weight_inject: 
+      use: false
+      type: "Negative Feedback" # "uniform"
+      add: false
+      mul: True
+      level: 0.1
+
+  optimizer: 
+    sam: false
+    adaptive: false # ASAM
+
+  adversarial: 
+    FGSM: 
+      use: false  
+      epsilon: 0.03
+    PGD: 
+      use: false 
+      epsilon: 0.03
+      num_steps: 10
+      alpha: 0.01
+
+  qat: 
+    use: false
+    a_bits: 8
+    w_bits: 8
+
+inference:
+  platform:
+    sram:
+      use: false
+      intensity: 200
+    aihwkit:
+      use: false
+      n_w: 0.02
+    memtorch:
+      use: false

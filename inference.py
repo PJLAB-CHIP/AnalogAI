@@ -83,7 +83,7 @@ EXP_BASIC = True # TODO:是否进行基础实验
 
 if EXP_BASIC:
     basic_dir = (args.config).split('.')[0]
-    # save_dir = os.path.join('./save_model/',basic_dir,'client_0_0.0_0.1')
+    # save_dir = os.path.join('./save_model/',basic_dir,'client_2_0.1_0.1')
     save_dir = os.path.join('./save_model/',basic_dir)
     result_dict = {
         'Name': args.config,
@@ -192,9 +192,9 @@ def select_model(config,state='client'):
             model = vgg.VGG('VGG16',in_channels=3)
     elif config.data.architecture == 'resnet18':
         if config.data.dataset == 'mnist':
-            model = resnet.ResNet18(in_channels=1)
+            model = resnet.resnet18(in_channels=1)
         elif config.data.dataset == 'cifar10':
-            model = resnet.ResNet18(in_channels=3)
+            model = resnet.resnet18(in_channels=3)
     elif config.data.architecture == 'mobileNet':
         if config.data.dataset == 'mnist':
             model = mobileNetv2.MobileNetV2(in_channels=1)

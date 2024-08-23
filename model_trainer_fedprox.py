@@ -87,7 +87,7 @@ class FedProxTrainer(object):
             config.recovery.noise = config.recovery.noise_8
         elif client_idx == 9:
             config.recovery.noise = config.recovery.noise_9
-        print('@@@@----->',model)   
+        # print('@@@@----->',model)    
         print(config.recovery.noise)
         # Train model
         for epoch in range(0, config.training.epochs):

@@ -52,6 +52,11 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1, padding: int = 0) 
 def inf_with_noise(data, weight, noise, stride, padding):
     return F.conv2d(data, weight + generate_noise(weight, noise), stride=stride, padding=padding)
 
+def negative_feedback_noise(data, weight, noise_local, noise_feedback, stride, padding):
+    o_i = F.conv2d(data, weight + generate_noise(weight, noise_local), stride=stride, padding=padding)
+    o_f = F.conv2d(data, weight + generate_noise(weight, noise_feedback), stride=stride, padding=padding)
+    return o_i-o_f
+
 # class BasicBlock(nn.Module):
 #     expansion = 1
 
@@ -85,8 +90,10 @@ class BasicBlock(nn.Module):
             in_planes: int,
             out_planes: int,
             stride: int = 1,
+            is_train: bool = True
     ):
         super().__init__()
+        self.is_train = is_train
         self.noise_backbone = noise_backbone
         self.in_planes = in_planes
         self.out_planes = out_planes
@@ -112,18 +119,29 @@ class BasicBlock(nn.Module):
                     m.bias.data.zero_()
 
     def forward(self, x):
-        identity = x
-        out = inf_with_noise(x, self.conv1.weight, self.noise_backbone, stride=self.stride, padding=1)
-        out = self.bn1(out)
-        out = self.relu(out)
-        out = inf_with_noise(out, self.conv2.weight, self.noise_backbone, stride=1, padding=1)
-        out = self.bn2(out)
-        if self.in_planes != self.out_planes or self.stride != 1:
-            identity = self.bn3(inf_with_noise(x, self.unit_conv.weight, self.noise_backbone, stride=self.stride, padding=0))
-        out += identity
-        out = self.relu(out)
+        if self.is_train:
+            identity = x
+            out = inf_with_noise(x, self.conv1.weight, self.noise_backbone, stride=self.stride, padding=1)
+            out = self.bn1(out)
+            out = self.relu(out)
+            out = inf_with_noise(out, self.conv2.weight, self.noise_backbone, stride=1, padding=1)
+            out = self.bn2(out)
+            if self.in_planes != self.out_planes or self.stride != 1:
+                    identity = self.bn3(inf_with_noise(x, self.unit_conv.weight, self.noise_backbone, stride=self.stride, padding=0))
+            out += identity
+            out = self.relu(out)
+        else:
+            identity = x
+            out = self.conv1(x)
+            out = self.bn1(out)
+            out = self.relu(out)
+            out = self.conv2(out)
+            out = self.bn2(out)
+            if self.in_planes != self.out_planes or self.stride != 1:
+                    identity = self.bn3(self.unit_conv(x))
+            out += identity
+            out = self.relu(out)
         return out
-
 
 # class Bottleneck(nn.Module):
 #     expansion = 4
@@ -195,9 +213,13 @@ class ResNet(nn.Module):
             num_classes,
             block: Type[BasicBlock],
             layers: List[int],
-            noise_backbone
+            noise_backbone=None,
+            is_train=True
+            # noise_feedback
+
     ):
         super().__init__()
+        self.is_train = is_train
         self.noise_backbone = noise_backbone  # noise var for backbone
         self.conv1 = conv3x3(in_channels, 64, stride=1, padding=1)  # first conv layer
         self.bn1 = nn.BatchNorm2d(64)
@@ -209,6 +231,8 @@ class ResNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc1 = nn.Linear(in_features=512, out_features=num_classes)
         self.init_weights()
+        # self.noise_feedback = [0.1,0.2,0.3]
+        # self.cal_times = 0
 
     def init_weights(self):
         for m in self.modules():
@@ -236,7 +260,12 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = inf_with_noise(x, self.conv1.weight, self.noise_backbone, stride=1, padding=1)
+        # print('x.shape:', x.shape)
+        # print('@@@--->',self.conv1,self.conv1.weight)
+        if self.is_train:
+            x = inf_with_noise(x, self.conv1.weight, self.noise_backbone, stride=1, padding=1)
+        else:
+            x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
 
@@ -247,15 +276,19 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = F.linear(x, self.fc1.weight + generate_noise(self.fc1.weight, self.noise_backbone), self.fc1.bias)
-
+        if self.is_train:
+            x = F.linear(x, self.fc1.weight + generate_noise(self.fc1.weight, self.noise_backbone), self.fc1.bias)
+        else:
+            x = self.fc1(x)
         return x
 
 
 # def ResNet18(in_channels):
 #     return ResNet(BasicBlock, [2, 2, 2, 2],in_channels=in_channels)
 
-def resnet18(in_channels,noise_backbone):
+# def resnet18(in_channels,noise_backbone,noise_feedback):
+#     return ResNet(in_channels, 10, BasicBlock, [2, 2, 2, 2], noise_backbone, noise_feedback)
+def resnet18(in_channels,noise_backbone=None):
     return ResNet(in_channels, 10, BasicBlock, [2, 2, 2, 2], noise_backbone)
 
 
