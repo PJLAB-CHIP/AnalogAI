@@ -26,7 +26,6 @@ import torch
 from torch import nn, device, no_grad, save
 # Imports from networks.
 # import timm
-from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, m_vit, vit, vit_small, alexnet
 from vit_pytorch import ViT
 from torchvision.models import AlexNet
 # Imports from utils.
@@ -43,6 +42,9 @@ from utils import get_foundation_model,CustomViTModel
 import argparse
 import yaml
 import wandb
+
+"""Import For Feature Enhancement Model"""
+from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, m_vit, vit, vit_small, alexnet
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -110,11 +112,18 @@ early_stopping = EarlyStopping(patience=20, verbose=True)
 
         
 def select_model(config,state='client',noise=None):
+    """Try to use feature enhancement model"""
     if config.data.architecture == 'vgg11':
         if config.data.dataset == 'mnist':
-            model = vgg.VGG('VGG11',in_channels=1)
+            model = vgg.VGGReturnFeature('VGG11',in_channels=1)
         elif config.data.dataset == 'cifar10':
-            model = vgg.VGG('VGG11',in_channels=3)
+            model = vgg.VGGReturnFeature('VGG11',in_channels=3)
+    # if config.data.architecture == 'vgg11':
+    #     if config.data.dataset == 'mnist':
+    #         model = vgg.VGG('VGG11',in_channels=1)
+    #     elif config.data.dataset == 'cifar10':
+    #         model = vgg.VGG('VGG11',in_channels=3)
+    
     elif config.data.architecture == 'vgg16':
         if config.data.dataset == 'mnist':
             model = vgg.VGG('VGG16',in_channels=1)

@@ -391,6 +391,19 @@ def PGD(model, images, labels, loss_fn, epsilon, alpha, num_steps):
         images = torch.clamp(original_images + eta, min=0, max=1).detach_()
     
     return images
+
+def compute_contrastive_loss(feature_maps, feature_maps_feedback, decay_factors=None, temperature=0.5):
+    assert len(feature_maps) == len(feature_maps_feedback)
+    if decay_factors:
+        assert len(decay_factors) == len(feature_maps)
+    loss_total = 0
+    for i in range(len(feature_maps)):
+        # 计算相似性
+        similarity = torch.nn.functional.cosine_similarity(feature_maps[i], feature_maps_feedback[i])
+        # 计算对比损失
+        loss = -torch.log(torch.exp(similarity / temperature) / torch.sum(torch.exp(similarity / temperature)))
+        loss_total += loss.mean() * decay_factors[i]
+    return loss_total
     
 
 def train_step(train_data, 
@@ -431,7 +444,7 @@ def train_step(train_data,
 
         if isinstance(optimizer, SAM):
             # first forward-backward pass
-            output = model(images)
+            output, feature_maps = model(images)
             loss = criterion(output, labels)  # use this loss for any training statistics
 
             if config.training.use_fl:
@@ -507,8 +520,12 @@ def train_step(train_data,
                 loss.backward()
             
             else:
-                output = model(images)
-                loss = criterion(output, labels)
+                output, feature_maps = model(images,0.05)
+                output_feedback, feature_maps_feedback = model(images,0.5)
+                loss_output = criterion(output, labels)
+                loss_feature = compute_contrastive_loss(feature_maps,feature_maps_feedback)
+                print('@@@@--->', loss_output, loss_feature)
+                loss = loss_output + loss_feature
                 # Backward pass
                 optimizer.zero_grad()
                 loss.backward()
@@ -552,7 +569,7 @@ def test_evaluation(validation_data, model, criterion, device):
         labels = labels.to(device)
         # images = images
         # labels = labels
-        pred = model(images)
+        pred, feature_maps = model(images)
         loss = criterion(pred, labels)
         total_loss += loss.item() * images.size(0)
 

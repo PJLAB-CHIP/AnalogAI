@@ -75,6 +75,48 @@ class VGG(nn.Module):
                 self.in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
+    
+def negative_feedback_noise(data, weight, noise_local, noise_feedback, stride, padding):
+    o_i = F.conv2d(data, weight + generate_noise(weight, noise_local), stride=stride, padding=padding)
+    o_f = F.conv2d(data, weight + generate_noise(weight, noise_feedback), stride=stride, padding=padding)
+    return o_i-o_f
+    
+class VGGReturnFeature(nn.Module):
+    def __init__(self, 
+                 vgg_name, 
+                 in_channels):
+        super(VGGReturnFeature, self).__init__()
+        self.in_channels = in_channels
+        self.features = self._make_layers(cfg[vgg_name])
+        self.classifier = nn.Linear(512, 10)
+
+    def forward(self, x, noise_intensity=0):
+        feature_maps = []
+        out = x
+        for idx,layer in enumerate(self.features):
+            # 给Conv2d添加特定强度噪声
+            if isinstance(layer,nn.Conv2d):
+                noise = torch.randn_like(layer.weight) * noise_intensity
+                self.features[idx].weight = nn.Parameter(self.features[idx].weight + noise)
+            out = layer(out)
+            if isinstance(layer,nn.Conv2d):
+                feature_maps.append(out) # TODO: 仅在Conv2d后将feature添加到列表中
+        out = out.view(out.size(0), -1)
+        out = self.classifier(out)
+        return out, feature_maps
+
+    def _make_layers(self, cfg):
+        layers = []
+        for x in cfg:
+            if x == 'M':
+                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+            else:
+                layers += [nn.Conv2d(self.in_channels, x, kernel_size=3, padding=1),
+                           nn.BatchNorm2d(x),
+                           nn.ReLU(inplace=True)]
+                self.in_channels = x
+        layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
+        return nn.Sequential(*layers)
 
 
 def test():
@@ -171,3 +213,7 @@ class VGG8(nn.Module):
 
 def vgg8(in_channels, num_classes, noise_backbone):
     return VGG8(in_channels, num_classes, noise_backbone)
+
+if __name__ == '__main__':
+    vgg = VGG('VGG11',in_channels=1)
+    print(vgg)

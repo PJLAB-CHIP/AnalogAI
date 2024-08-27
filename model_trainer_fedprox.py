@@ -173,7 +173,7 @@ class FedProxTrainer(object):
         for _, (images, labels) in enumerate(t):
             images = images.to(device)
             labels = labels.to(device)
-            pred = model(images)
+            pred, feature_maps = model(images)
             loss = criterion(pred, labels)
             total_loss += loss.item() * images.size(0)
 

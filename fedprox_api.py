@@ -85,8 +85,6 @@ class FedProxAPI_personal(object):
                 for _ in range(self.args.client_num_in_total):
                     acc_locals.append(1/self.args.client_num_in_total)
 
-            # acc_locals = [0.0,0.05,0.10,0.15,0.20] # TODO: 临时使用加权平均
-
             # step2.1: train individually for each client
             for idx, client in enumerate(self.client_list):
                 # (extra): get noise config for each client

@@ -1,6 +1,6 @@
 data:
   project_name: "AnalogAI"
-  architecture: "resnet18"
+  architecture: "vgg11"
   dataset: "cifar10"
   n_classes: 10
   
