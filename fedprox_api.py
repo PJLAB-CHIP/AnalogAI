@@ -166,6 +166,7 @@ class FedProxAPI_personal(object):
                 # step2.2: update global weights and local weights
                 w_global = self._aggregate(w_locals)
                 self.model_trainer.set_model_params(self.global_model, w_global)
+                
                 for idx, client in enumerate(self.client_list):
                     if self.args.use_momentum:
                         _w_fused_model = collections.OrderedDict()

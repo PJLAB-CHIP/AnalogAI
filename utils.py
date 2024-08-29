@@ -402,7 +402,8 @@ def compute_contrastive_loss(feature_maps, feature_maps_feedback, decay_factors=
         similarity = torch.nn.functional.cosine_similarity(feature_maps[i], feature_maps_feedback[i])
         # 计算对比损失
         loss = -torch.log(torch.exp(similarity / temperature) / torch.sum(torch.exp(similarity / temperature)))
-        loss_total += loss.mean() * decay_factors[i]
+        # loss_total += loss.mean() * decay_factors[i]
+        loss_total += loss.mean() * 0.05
     return loss_total
     
 
@@ -521,10 +522,11 @@ def train_step(train_data,
             
             else:
                 output, feature_maps = model(images,0.05)
-                output_feedback, feature_maps_feedback = model(images,0.5)
+                with torch.no_grad():
+                    output_feedback, feature_maps_feedback = model(images,0.5)
                 loss_output = criterion(output, labels)
                 loss_feature = compute_contrastive_loss(feature_maps,feature_maps_feedback)
-                print('@@@@--->', loss_output, loss_feature)
+                # print('@@@@--->', loss_output, loss_feature)
                 loss = loss_output + loss_feature
                 # Backward pass
                 optimizer.zero_grad()
@@ -569,7 +571,7 @@ def test_evaluation(validation_data, model, criterion, device):
         labels = labels.to(device)
         # images = images
         # labels = labels
-        pred, feature_maps = model(images)
+        pred, feature_maps = model(images,0)
         loss = criterion(pred, labels)
         total_loss += loss.item() * images.size(0)
 

@@ -96,8 +96,19 @@ class VGGReturnFeature(nn.Module):
         for idx,layer in enumerate(self.features):
             # 给Conv2d添加特定强度噪声
             if isinstance(layer,nn.Conv2d):
+                """version1"""
+                # noise = generate_noise(self.features[idx].weight,noise_intensity)
                 noise = torch.randn_like(layer.weight) * noise_intensity
                 self.features[idx].weight = nn.Parameter(self.features[idx].weight + noise)
+
+                # noise = generate_noise(layer.weight,noise_intensity[idx])
+                # # noise = torch.randn_like(layer.weight) * noise_intensity
+                # self.features[idx].weight = nn.Parameter(self.features[idx].weight + noise)
+                """version2"""
+                # self.features[idx] = inf_with_noise(out,self.features[idx].weight,
+                #                                     noise_intensity[idx],
+                #                                     self.features[idx].stride,
+                #                                     self.features[idx].padding)
             out = layer(out)
             if isinstance(layer,nn.Conv2d):
                 feature_maps.append(out) # TODO: 仅在Conv2d后将feature添加到列表中
