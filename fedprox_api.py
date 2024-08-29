@@ -15,6 +15,8 @@ import collections
 
 from fedprox_utils import Client,agg_FedAvg,save_model
 from earlystopping import EarlyStopping
+from utils import create_optimizer
+from torch.optim import lr_scheduler
 
 early_stopping = EarlyStopping(patience=20, verbose=True)
 
@@ -166,6 +168,34 @@ class FedProxAPI_personal(object):
                 # step2.2: update global weights and local weights
                 w_global = self._aggregate(w_locals)
                 self.model_trainer.set_model_params(self.global_model, w_global)
+
+
+                optimizer = create_optimizer(model, 
+                                        self.config.training.lr, 
+                                        self.config.training.momentum, 
+                                        self.config.training.weight_decay, 
+                                        self.config.training.optimizer, 
+                                        self.config.recovery.optimizer.sam, 
+                                        self.config.recovery.optimizer.adaptive)
+                pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                      factor=0.5,
+                                                      patience=10,
+                                                      verbose=True)
+                # 全局模型训练
+                print('@@@---> train global model')
+                _model, _optimizer = self.model_trainer.train(
+                    client_idx = 0,
+                    model=self.global_model,
+                    global_model = self.global_model,
+                    criterion=nn.CrossEntropyLoss(),
+                    optimizer = optimizer,
+                    train_data = self.train_data,
+                    validation_data = self.validation_data,
+                    config = self.config,
+                    pla_lr_scheduler = pla_lr_scheduler,
+                    device = self.device
+                )
+                w_global = self.model_trainer.get_model_params(_model)
                 
                 for idx, client in enumerate(self.client_list):
                     if self.args.use_momentum:
