@@ -521,7 +521,7 @@ def train_step(train_data,
                 loss.backward()
             
             else:
-                output, feature_maps = model(images,0.05)
+                output, feature_maps = model(images,config.recovery.noise.act_inject.sigma)
                 with torch.no_grad():
                     output_feedback, feature_maps_feedback = model(images,0.5)
                 loss_output = criterion(output, labels)
