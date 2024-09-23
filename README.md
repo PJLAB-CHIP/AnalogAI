@@ -1,4 +1,5 @@
 # AnalogAI
-A General Analog AI Framework for Model Accuracy Evaluation and Recovery under Analog Computation
+Official implementation of "AnalogAI: A General Accuracy Recovery Framework for Improving the Robustness of DNN"
+![The overview of AnalogAI](./figures/overview.png)
 ## Analog Inference
 ## Accuracy Recovery
