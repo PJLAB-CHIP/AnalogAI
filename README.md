@@ -24,7 +24,7 @@ bash ./script/train_fedprox.sh
 ```
 ## Configurations
 The retraining configurations can be convently configured at /exp. The important config options are:
-```
+```bash
 training.batch_size=256 # training batch size
 training.use_fl=True # if True uses multi-noise fusion injection
 training.use_neg=True # if True uses multiple feedback loops
@@ -45,7 +45,7 @@ You can run the experiments on an open-source memristor simulation platform (IBM
 bash ./script/inference.sh
 ```
 The inference config options are:
-```
+```bash
 inference.platform.aihwkit=True # if True uses projected gradient descent for inference
 inference.platform.aihwkit.device='PCM' # choose the device type of hardware arrays
 inference.platform.aihwkit.n_w=0.2 # the w_noise applied for each MAC computation during inference
@@ -53,8 +53,7 @@ inference.platform.aihwkit.n_w=0.2 # the w_noise applied for each MAC computatio
 
 # Accuracy Improvements
 Our proposed multi-scale noise-aware training **(MSNAT)** improves the accuracy compare to vanilla training, single noise injection, MSNAT  without (w/o) fusion injection (FI) strategy and multiple feedback loops (FL).
-
- <img src="./figures/experiments.png" alt="Test results" width="500"/> </div>
+![The overview of AnalogAI](./figures/experiments.png)
 
 # Citation
 # License
