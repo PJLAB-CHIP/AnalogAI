@@ -17,23 +17,22 @@ of custom quantization-aware and supports a range of noise-
 insensitive training algorithms for fast accuracy recovery studies.
 ![The overview of AnalogAI](./figures/overview.png)
 # Usage
-We provide one example to illustrate the usage of the code. For the IRS instance, we run resent8 with device relative variation 0.3. Training for 200 epochs and then conduct 200 times inference w/ noise Monte Carlo simulation (parameters can be modified in config).
+We provide one example to illustrate the usage of the code. For instance, we run resent18 on cifar-10 with 5 level multi-scale noise injection with feedback loops (parameters can be modified in config).
 
 ```bash
-python res18_main.py \
-  --mode tnt \
-  --type irs \
+bash ./script/train_fedprox.sh
 ```
+# Configurations
+The retraining configurations can be convently configured at /exp. The important config options are:
+
 # Analog Inference
 ```bash
-python res18_main.py \
-  --mode tnt \
-  --type irs \
+bash ./script/inference.sh
 ```
 
 # Accuracy Improvements
 Our proposed multi-scale noise-aware training **(MSNAT)** improves the accuracy compare to vanilla training, single noise injection, MSNAT  without (w/o) fusion injection (FI) strategy and multiple feedback loops (FL).
 
-<div style="text-align: center;"> <img src="./figures/experiments.png" alt="Test results" width="500"/> </div>
+ <img src="./figures/experiments.png" alt="Test results" width="500"/> </div>
 
 
