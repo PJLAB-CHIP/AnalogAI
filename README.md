@@ -26,8 +26,8 @@ bash ./script/train_msnat.sh
 The retraining configurations can be convently configured at /exp. The important config options are:
 ```bash
 training.batch_size=256 # training batch size
-training.use_fl=True # if True uses multi-noise fusion injection
-training.use_neg=True # if True uses multiple feedback loops
+training.use_FI=True # if True uses multi-noise fusion injection
+training.use_FL=True # if True uses multiple feedback loops
 
 recovery.noise_0.act_inject.sigma=0.1 # Range of multi-noise intensities
 ...

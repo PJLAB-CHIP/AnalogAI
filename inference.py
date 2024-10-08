@@ -83,7 +83,7 @@ if EXP_BASIC:
         'Dataset': config.data.dataset,
     }
 else:
-    basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+    basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_FI}'
     save_path = os.path.join('./save_model/',basic_dir)
     client_name = 'client_0_0.0_0.1'
     if (args.config).split('_')[-1] == 'T.yml':
@@ -98,7 +98,7 @@ else:
     result_dict = {
         'Model': config.data.architecture,
         'Dataset': config.data.dataset,
-        'Use FL':config.training.use_fl,
+        'Use FI':config.training.use_FI,
         'Cient Num': config.training.client_num_in_total,
         'Act Inject': config.recovery.noise_0.act_inject.use,
         'Weight Inject': config.recovery.noise_0.weight_inject.use,
