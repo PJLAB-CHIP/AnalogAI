@@ -131,37 +131,27 @@ class VGG8(nn.Module):
                     m.bias.data.zero_()
 
     def forward(self, x):
-
         x = inf_with_noise(x, self.conv1.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn1(x)
         x = self.relu(x)
-
         x = inf_with_noise(x, self.conv2.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn2(x)
         x = self.relu(x)
-
         x = self.pool(x)
-
         x = inf_with_noise(x, self.conv3.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn3(x)
         x = self.relu(x)
-
         x = inf_with_noise(x, self.conv4.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn4(x)
         x = self.relu(x)
-
         x = self.pool(x)
-
         x = inf_with_noise(x, self.conv5.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn5(x)
         x = self.relu(x)
-
         x = inf_with_noise(x, self.conv6.weight, self.noise_backbone, stride=1, padding=1)
         x = self.bn6(x)
         x = self.relu(x)
-
         x = self.pool(x)
-
         x = torch.flatten(x, 1)
         x = F.linear(x, self.fc1.weight + generate_noise(self.fc1.weight, self.noise_backbone), self.fc1.bias)
         x = self.relu(x)

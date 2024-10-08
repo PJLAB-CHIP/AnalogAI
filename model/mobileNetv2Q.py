@@ -6,7 +6,7 @@ Mobile Networks for Classification, Detection and Segmentation" for more details
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from paper.AnalogAI.qat.qat import Linear_Q, Conv2d_Q
+from recovery.qat.qat import Linear_Q, Conv2d_Q
 
 class Block(nn.Module):
     '''expand + depthwise + pointwise'''

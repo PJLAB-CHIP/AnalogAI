@@ -97,7 +97,6 @@ def convet_sram_op(module,
                 module._modules[name] = sram_linear
 
         elif isinstance(child, MultiHeadSelfAttention):
-            # 直接递归处理MultiHeadSelfAttention内部的层
             convet_sram_op(
                 child, 
                 layer_counter, 

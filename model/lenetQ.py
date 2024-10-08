@@ -1,7 +1,7 @@
 '''LeNet in PyTorch.'''
 import torch.nn as nn
 import torch.nn.functional as F
-from paper.AnalogAI.qat.qat import Linear_Q, Conv2d_Q
+from recovery.qat.qat import Linear_Q, Conv2d_Q
 
 class LeNetQ(nn.Module):
     def __init__(self):

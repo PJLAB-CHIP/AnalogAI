@@ -10,11 +10,11 @@ import torch
 from datetime import datetime
 import torch.nn as nn
 import wandb
-from call_inference import infer_aihwkit
+from InferHardware.ibm_aihwkit import infer_aihwkit
 import collections
 
 from fedprox_utils import Client,agg_FedAvg,save_model
-from earlystopping import EarlyStopping
+from final.AnalogAI.utils.earlystopping import EarlyStopping
 
 early_stopping = EarlyStopping(patience=20, verbose=True)
 

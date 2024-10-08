@@ -22,24 +22,16 @@ import numpy as np
 import torch
 from torch import nn, device, no_grad, save
 from torch import max as torch_max
-from transformers import ViTModel
 # Imports from networks.
 
-from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, vit
+from model import resnet, vgg, lenet, mlp
 # Imports from utils.
-from utils import create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation
-from dataset import load_dataset
+from final.AnalogAI.data.dataset import load_dataset
 # from AnalogSram.sram_op import convert_to_sram_prepare
-from AnalogSram.convert_sram import convert_to_sram_prepare
+from InferHardware.sram.convert_sram import convert_to_sram_prepare
+from InferHardware.ibm_aihwkit import infer_aihwkit
 
 from args import parse_option
-from utils import get_foundation_model,CustomViTModel
-from transformers import ViTModel,ViTConfig
-
-
-# from call_inference import infer_memtorch, infer_aihwkit, infer_MNSIM
-# from call_inference import infer_aihwkit, infer_MemTorch
-from call_inference import infer_aihwkit
 import argparse
 import yaml
 import wandb
@@ -195,29 +187,6 @@ def select_model(config,state='client'):
             model = resnet.resnet18(in_channels=1)
         elif config.data.dataset == 'cifar10':
             model = resnet.resnet18(in_channels=3)
-    elif config.data.architecture == 'mobileNet':
-        if config.data.dataset == 'mnist':
-            model = mobileNetv2.MobileNetV2(in_channels=1)
-        elif config.data.dataset == 'cifar10':
-            model = mobileNetv2.MobileNetV2(in_channels=3)        
-    elif config.data.architecture == 'vit':
-        if config.data.dataset == 'mnist':
-            _in_channels = 1
-        elif config.data.dataset == 'cifar10':
-            _in_channels = 3
-        vit_config = ViTConfig(
-            num_channels= _in_channels,
-            image_size=32
-        )
-        model = CustomViTModel(vit_config=vit_config)
-        # model = vit.VisionTransformer(img_size=32,
-        #                             in_chans=_in_channels,
-        #                             num_classes=10,
-        #                             use_return_dict=False)
-    
-    if (args.config).split('_')[-1] != 'baseline.yml' and state == 'global':
-        foundation_model_path = get_foundation_model(config=config)
-        model.load_state_dict(torch.load(foundation_model_path))
     return model
 
 
@@ -233,33 +202,9 @@ def main():
 
     #----Load the pytorch model------
     model = select_model(config=config)
-    # if config.data.architecture == 'vgg11':
-    #     model = vgg.VGG('VGG11')
-    # elif config.data.architecture == 'vgg16':
-    #     model = vgg.VGG('VGG16')
-    # elif config.data.architecture == 'resnet18':
-    #     model = resnet.ResNet18()
-    # elif config.data.architecture == 'vit':
-    #     model = ViTModel()
 
     model.to(device)   
     criterion = nn.CrossEntropyLoss().cuda()
-
-    # if torch.cuda.device_count() > 1:
-    #     model = nn.DataParallel(model) 
-
-    """(fix): layer name transfer"""
-    # trained_model = torch.load('/code/AnalogAI/save_model/deprecated/resnet_139_91.880000.pth.tar')
-    # converted_weights = {}
-    # for key, value in trained_model.items():
-    #     if key.startswith('module.'):
-    #         new_key = key[len('module.'):]
-    #         converted_weights[new_key] = value
-    #     else:
-    #         converted_weights[key] = value
-    # # 加载转换后的权重到模型
-    # model.load_state_dict(converted_weights)
-
     #----load existing model---------
     print('save_dir:', save_dir)
     best_model = get_best_model(save_dir=save_dir)
@@ -267,7 +212,8 @@ def main():
     if os.path.exists(os.path.join(save_dir, best_model)):
         print('==> loading existing model')
         model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
-    # model.load_state_dict(torch.load('/root/jiaqiLv/AnalogAI/save_model/done/resnet18_cifar10_client_5_epoch_1_True_False_noise_0.0_0.2_0.1_0.1_False/client_0_0_0.1/resnet18_client_0_round_10_86.120000.pth.tar'))
+    else:
+        model.load_state_dict(torch.load('../save_model/checkpoint.pth.tar'))
 
     """(test): aggregate"""
     # submodel_folder = os.listdir(save_dir)

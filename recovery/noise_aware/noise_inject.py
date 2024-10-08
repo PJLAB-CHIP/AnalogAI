@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from functools import partial
-from sensibility_utils import assign_coefficients_to_layers
 
 def negative_fluction(output, sigma, mean, sigma_global, sigma_neg):
     # print(sigma, mean, sigma_global, sigma_neg)
@@ -65,43 +64,43 @@ class InjectForward():
         return new_mask
     
     def get_hook(self, model, function=default_hook):
-        layer_counter, coefficients = assign_coefficients_to_layers(model)
-        print('@@@--->', layer_counter)
-        print('###--->', coefficients)
+        # layer_counter, coefficients = assign_coefficients_to_layers(model)
+        # print('@@@--->', layer_counter)
+        # print('###--->', coefficients)
         mask = self.expand_mask(model)
         layers = self.get_layers(model)
-        # for l,m in zip(layers, mask):
-        #     if m:
-        #         a = l.register_forward_hook(function)
-        #         self.hook_list.append(a)
-        for i, (layer, mask_value) in enumerate(zip(layers, mask)):
-            if mask_value:
-                # sigma = self.sigma_dict.get(i, 1.0)
-                sigma_neg = 1.0 # TODO: 暂时设置为固定值
-                # if self.fault_type == 'Negative Feedback':
-                #     hook_function = partial(function, sigma_global=self.sigma_global, sigma_neg=sigma_neg)
-                # else:
-                #     hook_function = function
-                print(function.__name__)
-                print("?????????", layers[layer].forward, hasattr(layers[layer], "_orig_forward"))
-                # first inject forward, set init forward to layer forward
-                if not hasattr(layers[layer], "_orig_forward"):
-                    layers[layer]._init_forward = layers[layer].forward
-                    print("@@@@@ --->  init forward")
-                assert hasattr(layers[layer], "_init_forward")
+        for l,m in zip(layers, mask):
+            if m:
+                a = l.register_forward_hook(function)
+                self.hook_list.append(a)
+        # for i, (layer, mask_value) in enumerate(zip(layers, mask)):
+        #     if mask_value:
+        #         # sigma = self.sigma_dict.get(i, 1.0)
+        #         sigma_neg = 1.0 
+        #         # if self.fault_type == 'Negative Feedback':
+        #         #     hook_function = partial(function, sigma_global=self.sigma_global, sigma_neg=sigma_neg)
+        #         # else:
+        #         #     hook_function = function
+        #         print(function.__name__)
+        #         print("?????????", layers[layer].forward, hasattr(layers[layer], "_orig_forward"))
+        #         # first inject forward, set init forward to layer forward
+        #         if not hasattr(layers[layer], "_orig_forward"):
+        #             layers[layer]._init_forward = layers[layer].forward
+        #             print("@@@@@ --->  init forward")
+        #         assert hasattr(layers[layer], "_init_forward")
                 
-                layers[layer]._orig_forward = layers[layer]._init_forward
-                def _new_foward(m, x):
-                    result = m._orig_forward(x)
-                    negative_fluction(result, self.arg1, self.arg2, self.sigma_global, coefficients[layer])
-                    return result
-                layers[layer].forward = MethodType(_new_foward, layers[layer])
-                # hook = layer.register_forward_hook(function, with_kwargs={"mean": self.arg1, "sigma": self.arg2, 
-                #                                                             "sigma_global": self.sigma_global, 
-                #                                                             "sigma_neg" : sigma_neg})
-                # hook = layer.register_forward_hook(lambda module, input, output: hook_function(module, input, output))
-                # hook = layer.register_forward_hook(lambda module, input, output: function(module, input, output, self.sigma_global, self.sigma_neg))
-                # self.hook_list.append(hook)
+        #         layers[layer]._orig_forward = layers[layer]._init_forward
+        #         def _new_foward(m, x):
+        #             result = m._orig_forward(x)
+        #             negative_fluction(result, self.arg1, self.arg2, self.sigma_global, coefficients[layer])
+        #             return result
+        #         layers[layer].forward = MethodType(_new_foward, layers[layer])
+        #         # hook = layer.register_forward_hook(function, with_kwargs={"mean": self.arg1, "sigma": self.arg2, 
+        #         #                                                             "sigma_global": self.sigma_global, 
+        #         #                                                             "sigma_neg" : sigma_neg})
+        #         # hook = layer.register_forward_hook(lambda module, input, output: hook_function(module, input, output))
+        #         # hook = layer.register_forward_hook(lambda module, input, output: function(module, input, output, self.sigma_global, self.sigma_neg))
+        #         # self.hook_list.append(hook)
 
     def __call__(self, model):
         

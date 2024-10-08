@@ -11,8 +11,7 @@ script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
 os.chdir(script_dir)
 # os.environ['WANDB_API_KEY'] = 'e7a84490fccf4d551013cad7ca58549bb09594f7'
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 from datetime import datetime
 from tqdm import tqdm
 # import timm
@@ -24,18 +23,14 @@ from torch import max as torch_max
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
-import timm
-from model.model_set import resnet, vgg, lenet, mobileNetv2, preact_resnet, vit
+from model import resnet, vgg, lenet
 # Imports from utils.
-from utils import dict2namespace, create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation
-from dataset import load_dataset
+from data.dataset import load_dataset
 # Imports from networks.
-from noise_inject import InjectForward, InjectWeight, InjectWeightNoise
-from qat.fake_quantize import fake_quantize_prepare
-from earlystopping import EarlyStopping
-
-from AnalogSram.sram_op import convert_to_sram_prepare
-
+from recovery.noise_aware.noise_inject import InjectForward, InjectWeight, InjectWeightNoise
+from recovery.qat.fake_quantize import fake_quantize_prepare
+from utils.utils import test_evaluation, train_step, create_optimizer
+from utils.earlystopping import EarlyStopping
 
 # from call_inference import infer_memtorch, infer_aihwkit, infer_MNSIM
 # from call_inference import infer_aihwkit, infer_MNSIM
@@ -246,14 +241,6 @@ def main():
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)     
     model.to(device)
-
-    if args.sram_analog_recover:
-    #----load existing model---------
-        if os.path.exists('.pth.tar'):
-            print('==> loading existing model')
-            model.load_state_dict(torch.load('.pth.tar'))   
-        #----------------------
-        model = convert_to_sram_prepare(model=model, device=device, backend='SRAM', parallelism=16, error=300,)
     
     optimizer = create_optimizer(model, 
                                  config.training.lr, 
