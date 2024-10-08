@@ -20,7 +20,7 @@ insensitive training algorithms for fast accuracy recovery studies.
 We provide one example to illustrate the usage of the code. For instance, we run resent18 on cifar-10 with 5 level multi-scale noise injection with feedback loops (parameters can be modified in config).
 
 ```bash
-bash ./script/train_fedprox.sh
+bash ./script/train_msnat.sh
 ```
 ## Configurations
 The retraining configurations can be convently configured at /exp. The important config options are:
