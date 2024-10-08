@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import numpy as np
 import torch
 from torch import nn, device, no_grad, save
-from .model import resnet, vgg, lenet, mlp 
+from model import resnet, vgg, lenet, mlp 
 from utils.utils import dict2namespace, create_optimizer, SAM, FGSMTrainer, PGDTrainer, train_step, test_evaluation
 from data.dataset import load_dataset
 from utils.earlystopping import EarlyStopping
@@ -69,7 +69,7 @@ EXP_BASIC = True # TODO:
 if EXP_BASIC:
     basic_dir = (args.config).split('.')[0]
 else:
-    basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_fl}'
+    basic_dir = f'{config.data.architecture}_{config.data.dataset}_client_{config.training.client_num_in_total}_epoch_{config.training.epochs}_{config.recovery.noise_0.act_inject.use}_{config.recovery.noise_0.weight_inject.use}_noise_{min_noise_intensity}_{max_noise_intensity}_{_min_noise_intensity}_{_max_noise_intensity}_{config.training.use_FI}'
 
 
 save_dir = './save_model/' + basic_dir
@@ -112,7 +112,7 @@ def select_model(config,state='client', noise = None, is_train=None):
     return model
 
 def main():
-    args.use_fl = config.training.use_fl
+    args.use_FI = config.training.use_FI
     args.client_num_in_total = config.training.client_num_in_total
     config.use_wandb = args.use_wandb
     """Train a PyTorch CNN analog model with dataset (eg. CIFAR10)."""
