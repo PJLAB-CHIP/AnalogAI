@@ -13,7 +13,6 @@ from tqdm import tqdm
 import math
 import wandb
 
-from qat.fake_quantize import fake_quantize_prepare
 from recovery.noise_aware.noise_inject import InjectForward, InjectWeight, InjectWeightNoise
 from utils.utils import train_step, test_evaluation
 from utils.earlystopping import EarlyStopping
@@ -60,12 +59,6 @@ class FedProxTrainer(object):
         valid_losses = []
         test_error = []
 
-        if config.recovery.qat.use:
-            model = fake_quantize_prepare(model=model, 
-                                        device=device, 
-                                        a_bits=config.recovery.qat.a_bits, 
-                                        w_bits=config.recovery.qat.w_bits, )
-            
         # (extra): get noise config for each client
         if client_idx == 0:
             config.recovery.noise = config.recovery.noise_0

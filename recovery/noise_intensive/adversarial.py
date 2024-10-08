@@ -13,10 +13,7 @@ def FGSM(image, epsilon, data_grad):
 
 
 def PGD(model, images, labels, loss_fn, epsilon, alpha, num_steps):
-    # Set the model to evaluation mode
-    # model.eval()
-    # perturbed_images = images.clone().detach()
-    # perturbed_images.requires_grad = True
+    
     original_images = images.clone().detach()
     images = images + torch.randn_like(images) * epsilon
     images = torch.clamp(images, 0, 1)

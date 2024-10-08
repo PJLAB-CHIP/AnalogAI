@@ -13,8 +13,8 @@ import wandb
 from InferHardware.ibm_aihwkit import infer_aihwkit
 import collections
 
-from fedprox_utils import Client,agg_FedAvg,save_model
-from final.AnalogAI.utils.earlystopping import EarlyStopping
+from .fusion_utils import Client,agg_FedAvg,save_model
+from utils.earlystopping import EarlyStopping
 
 early_stopping = EarlyStopping(patience=20, verbose=True)
 
@@ -164,7 +164,7 @@ class FedProxAPI_personal(object):
             #         print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
             #         acc_locals.append(accuracy)
 
-            if self.config.training.use_fl:
+            if self.config.training.use_FI:
                 # step2.2: update global weights and local weights
                 w_global = self._aggregate(w_locals)
                 self.model_trainer.set_model_params(self.global_model, w_global)
