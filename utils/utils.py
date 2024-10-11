@@ -17,8 +17,8 @@ from datetime import datetime
 from recovery.noise_aware.noise_inject import InjectForward, InjectWeight, InjectWeightNoise
 import argparse
 import os
-from recovery.noise_intensive import adversarial
-from recovery.noise_intensive.sam import SAM
+from recovery.noise_robust import adversarial
+from recovery.noise_robust.sam import SAM
 
 def get_foundation_model(config):
     models = os.listdir('./foundation_model')
