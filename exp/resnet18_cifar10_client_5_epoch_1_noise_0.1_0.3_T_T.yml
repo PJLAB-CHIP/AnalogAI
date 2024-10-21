@@ -19,7 +19,7 @@ training:
   client_num_in_total: 5
   use_fl: True
   device: "cuda"
-  use_neg: False #是否反馈
+  use_neg: True #是否反馈
 
 recovery:
   noise_0: 
@@ -57,7 +57,7 @@ recovery:
       use: false
       type: "Negative Feedback" # "uniform"
       mean: 1.0
-      sigma: 0.20
+      sigma: 0.2
       mask: None
       add: false
       mul: True
@@ -87,7 +87,7 @@ recovery:
       use: false
       type: "Negative Feedback" # "uniform"
       mean: 1.0
-      sigma: 0.30
+      sigma: 0.3
       mask: None
       add: false
       mul: True
@@ -123,7 +123,7 @@ inference:
       use: false
       intensity: 200
     aihwkit:
-      use: false
+      use: False
       n_w: 0.02
     memtorch:
       use: false

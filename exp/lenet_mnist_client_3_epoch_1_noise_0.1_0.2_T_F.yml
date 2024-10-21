@@ -1,7 +1,7 @@
 data:
   project_name: "AnalogAI"
-  architecture: "resnet18"
-  dataset: "cifar10"
+  architecture: "lenet"
+  dataset: "mnist"
   n_classes: 10
   
 training: 
@@ -57,7 +57,7 @@ recovery:
       use: false
       type: "Negative Feedback" # "uniform"
       mean: 1.0
-      sigma: 0.20
+      sigma: 0.2
       mask: None
       add: false
       mul: True

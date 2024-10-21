@@ -1,7 +1,7 @@
 data:
   project_name: "AnalogAI"
   architecture: "resnet18"
-  dataset: "cifar10"
+  dataset: "mnist"
   n_classes: 10
   
 training: 
