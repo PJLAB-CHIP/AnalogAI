@@ -106,9 +106,9 @@ def select_model(config,state='client', noise = None, is_train=None):
             model = lenet.LeNet(in_channels=3, is_train = is_train, noise_backbone = noise) 
     elif config.data.architecture == 'mlp':
         if config.data.dataset == 'mnist':
-            model = mlp.MLPM(is_train = is_train,noise_backbone=noise)
+            model = mlp.MLP(in_channels=1, is_train = is_train,noise_backbone=noise)
         elif config.data.dataset == 'cifar10':
-            model = mlp.MLPM(is_train = is_train, noise_backbone=noise)
+            model = mlp.MLP(in_channels=3, is_train = is_train, noise_backbone=noise)
     return model
 
 def main():

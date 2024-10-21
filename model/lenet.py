@@ -51,7 +51,7 @@ def inf_with_noise(data, weight, noise, stride, padding):
 class LeNet(nn.Module):
     def __init__(self,in_channels,is_train=False,noise_backbone=0):
         super(LeNet, self).__init__()
-        self.conv1 = conv5x5(1, 6, stride=1, padding=2)
+        self.conv1 = conv5x5(in_channels, 6, stride=1, padding=2)
         self.conv2 = conv5x5(6, 16, stride=1, padding=0)
         self.fc1   = nn.Linear(16*5*5, 120)
         self.fc2   = nn.Linear(120, 84)
