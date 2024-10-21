@@ -4,6 +4,7 @@ import torch.nn as nn
 from recovery.qat.qat import Linear_Q, Conv2d_Q
 
 cfg = {
+    'VGG8':  [64, 'M', 128, 'M', 256, 'M', 512, 'M'],
     'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
@@ -12,9 +13,10 @@ cfg = {
 
 
 class VGGQ(nn.Module):
-    def __init__(self, vgg_name):
+    def __init__(self, vgg_name, in_channels):
         super(VGGQ, self).__init__()
         self.features = self._make_layers(cfg[vgg_name])
+        self.in_channels = in_channels
         self.classifier = Linear_Q(512, 10)
 
     def forward(self, x):
@@ -25,22 +27,21 @@ class VGGQ(nn.Module):
 
     def _make_layers(self, cfg):
         layers = []
-        in_channels = 3
         first = 1
         for x in cfg:
             if x == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
                 if(first):
-                    layers += [Conv2d_Q(in_channels, x, kernel_size=3, padding=1, first_layer=1),
+                    layers += [Conv2d_Q(self.in_channels, x, kernel_size=3, padding=1, first_layer=1),
                            nn.BatchNorm2d(x),
                            nn.ReLU(inplace=True)]
                     first = 0
                 else:
-                    layers += [Conv2d_Q(in_channels, x, kernel_size=3, padding=1),
+                    layers += [Conv2d_Q(self.in_channels, x, kernel_size=3, padding=1),
                            nn.BatchNorm2d(x),
                            nn.ReLU(inplace=True)]
-                in_channels = x
+                self.in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
 

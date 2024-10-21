@@ -23,7 +23,7 @@ from torch import max as torch_max
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
-from model import resnet, vgg, lenet
+from model import resnet, vgg, lenet, mlp
 # Imports from utils.
 from data.dataset import load_dataset
 # Imports from networks.
@@ -88,45 +88,6 @@ else:
     
 early_stopping = EarlyStopping(patience=20, verbose=True)
 
-def infer_evaluation(validation_data, model, criterion):
-    """Test trained network
-
-    Args:
-        validation_data (DataLoader): Validation set to perform the evaluation
-        model (nn.Module): Trained model to be evaluated
-        criterion (nn.CrossEntropyLoss): criterion to compute loss
-
-    Returns:
-        nn.Module, float, float, float: model, test epoch loss, test error, and test accuracy
-    """
-    total_loss = 0
-    predicted_ok = 0
-    total_images = 0
-
-    model.eval()
-    device_cpu = torch.device("cpu")
-    model.to(device_cpu)
-
-    # for images, labels in validation_data:
-    t = tqdm(validation_data, leave=False, total=len(validation_data))
-    for _, (images, labels) in enumerate(t):
-        images = images.to(device_cpu)
-        labels = labels.to(device_cpu)
-        # images = images
-        # labels = labels
-        pred = model(images)
-        loss = criterion(pred, labels)
-        total_loss += loss.item() * images.size(0)
-
-        _, predicted = torch_max(pred.data, 1)
-        total_images += labels.size(0)
-        predicted_ok += (predicted == labels).sum().item()
-        accuracy = predicted_ok / total_images * 100
-        error = (1 - predicted_ok / total_images) * 100
-
-    epoch_loss = total_loss / len(validation_data.dataset)
-
-    return model, epoch_loss, error, accuracy
 
 def training_loop(model, 
                   criterion, 
@@ -222,6 +183,33 @@ def training_loop(model,
     
     return model, optimizer
 
+def select_model(config, in_channels):
+    if config.data.architecture == 'vgg8':
+        if config.recovery.qat.use:
+            from model.vggQ import VGGQ
+            model = VGGQ('VGG8', in_channels)
+        else:
+            model = vgg.vgg8(in_channels=in_channels, num_classes=10)
+    elif config.data.architecture == 'resnet18':
+        if config.recovery.qat.use:
+            from model.resnetQ import ResNet18Q
+            model = ResNet18Q(in_channels)
+        else:
+            model = resnet.resnet18(in_channels)
+    elif config.data.architecture == 'lenet':
+        if config.recovery.qat.use:
+            from model.lenetQ import LeNetQ
+            model = LeNetQ(in_channels)
+        else:
+            model = lenet.LeNet(in_channels)
+    elif config.data.architecture == 'mlp':
+        if config.recovery.qat.use:
+            from model.mlpQ import MLPQ
+            model = MLPQ(in_channels)
+        else:
+            model = mlp.MLP(in_channels)
+    return model
+
 
 def main():
     """Train a PyTorch CNN analog model with dataset (eg. CIFAR10)."""
@@ -236,7 +224,9 @@ def main():
     train_data, validation_data = dataset.load_images()
 
     #----Load the pytorch model------
-    model = resnet.ResNet18()
+    in_channels = 3 if config.data.dataset=='cifar10' else 1
+
+    model = select_model(config, in_channels)
 
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)     
@@ -273,31 +263,6 @@ def main():
     )
 
     print(f"{datetime.now().time().replace(microsecond=0)} --- " f"Completed Network Training")
-
-    # if args.analog_infer:
-    #     print(f"{datetime.now().time().replace(microsecond=0)} --- " f"Starting DNN inference on a analog platform")
-    #     if os.path.exists(os.path.join(save_dir, 'res50jw.pth')):
-    #         # load existing model
-    #         model.eval()
-    #         device_cpu = torch.device("cpu")
-    #         model.to(device_cpu)
-    #         print('==> loading existing model')
-    #         model.load_state_dict(torch.load(save_path))
-    #         # # infer_model = infer_memtorch().patch(model)
-    #         # infer_model = infer_aihwkit().patch(model)
-    #         # print('==> inferencing on IBM')
-    #         # _, _, error, accuracy = infer_evaluation(
-    #         #                 validation_data, infer_model, criterion
-    #         #             )
-    #         # print(f'error:{error:.2f}' + f'/n accuracy:{accuracy:.2f}')
-    #         w = np.linspace(0., 0.02, num=5, endpoint=True)
-    #         # infer_model = infer_memtorch().patch(model)
-    #         for n_w in w:
-    #             infer_model = infer_aihwkit(forward_w_noise=n_w).patch(model)
-    #             _, _, error, accuracy = test_evaluation(
-    #                             validation_data, infer_model, criterion
-    #                         )
-    #             print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' w_noise:{n_w:.4f}')
 
 
 if __name__ == "__main__":

@@ -49,7 +49,7 @@ def inf_with_noise(data, weight, noise, stride, padding):
     return F.conv2d(data, weight + generate_noise(weight, noise), stride=stride, padding=padding)
 
 class LeNet(nn.Module):
-    def __init__(self,in_channels,is_train,noise_backbone):
+    def __init__(self,in_channels,is_train=False,noise_backbone=0):
         super(LeNet, self).__init__()
         self.conv1 = conv5x5(1, 6, stride=1, padding=2)
         self.conv2 = conv5x5(6, 16, stride=1, padding=0)

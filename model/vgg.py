@@ -159,5 +159,5 @@ class VGG8(nn.Module):
 
         return output
 
-def vgg8(in_channels, num_classes, noise_backbone):
+def vgg8(in_channels, num_classes, noise_backbone=0):
     return VGG8(in_channels, num_classes, noise_backbone)

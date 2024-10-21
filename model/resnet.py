@@ -189,7 +189,7 @@ class ResNet(nn.Module):
         return x
 
 
-def resnet18(in_channels,noise_backbone, is_train):
+def resnet18(in_channels,noise_backbone=0, is_train=False):
     return ResNet(in_channels, 10, BasicBlock, [2, 2, 2, 2], noise_backbone, is_train)
 
 def ResNet34(in_channels):

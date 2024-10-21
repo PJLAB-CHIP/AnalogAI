@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from recovery.qat.qat import Linear_Q, Conv2d_Q
 
 class LeNetQ(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels):
         super(LeNetQ, self).__init__()
-        self.conv1 = Conv2d_Q(3, 6, 5, first_layer = 1)
+        self.conv1 = Conv2d_Q(in_channels, 6, 5, first_layer = 1)
         self.conv2 = Conv2d_Q(6, 16, 5)
         self.fc1   = Linear_Q(16*5*5, 120)
         self.fc2   = Linear_Q(120, 84)
