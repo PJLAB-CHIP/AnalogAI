@@ -91,9 +91,9 @@ early_stopping = EarlyStopping(patience=20, verbose=True)
 def select_model(config,state='client', noise = None, is_train=None):
     if config.data.architecture == 'vgg8':
         if config.data.dataset == 'mnist':
-            model = vgg.vgg8(in_channels=1, num_classes=10, noise_backbone=noise, is_train=is_train)
+            model = vgg.vgg8(in_channels=1, num_classes=10, noise_backbone=noise)
         elif config.data.dataset == 'cifar10':
-            model = vgg.vgg8(in_channels=3, num_classes=10, noise_backbone=noise, is_train=is_train)
+            model = vgg.vgg8(in_channels=3, num_classes=10, noise_backbone=noise)
     elif config.data.architecture == 'resnet18':
         if config.data.dataset == 'mnist':
             model = resnet.resnet18(in_channels=1, noise_backbone=noise, is_train = is_train)
@@ -152,7 +152,7 @@ def main():
         elif _ == 4:
             config.recovery.noise = config.recovery.noise_4
 
-        model = select_model(config=config,noise=config.recovery.noise.act_inject.sigma)
+        model = select_model(config=config,noise=config.recovery.noise.act_inject.sigma, is_train=True)
 
         # if torch.cuda.device_count() > 1:
         #     model = nn.DataParallel(model)

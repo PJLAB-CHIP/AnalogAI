@@ -17,9 +17,9 @@ training:
   eps: 0.00000001
   grad_clip: 1.0
   client_num_in_total: 5
-  use_fl: True
+  use_FI: True
   device: "cuda"
-  use_neg: True #是否反馈
+  use_FL: True #是否反馈
 
 recovery:
   noise_0: 
