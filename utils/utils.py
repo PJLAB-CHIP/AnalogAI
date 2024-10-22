@@ -20,6 +20,11 @@ import os
 from recovery.noise_robust import adversarial
 from recovery.noise_robust.sam import SAM
 
+def negative_feedback(output_backbone, label, criterion, outs):
+    nf_out = output_backbone - 0.001 * sum((10**(-i)) * output for i, output in enumerate(outs))
+    loss = criterion(nf_out / (len(outs)+1), label)
+    return loss
+
 def get_foundation_model(config):
     models = os.listdir('./foundation_model')
     for model_name in models:
@@ -307,11 +312,25 @@ def train_step(train_data,
                 loss.backward()
             
             else:
-                output = model(images)
-                loss = criterion(output, labels)
-                # Backward pass
-                optimizer.zero_grad()
-                loss.backward()
+                if config.training.use_FL: # use feedback loops
+                    output = model(images)
+                    model.noise_backbone = config.recovery.noise.act_inject.sigma + 0.05
+                    ovf1 = model(images)
+                    model.noise_backbone = config.recovery.noise.act_inject.sigma + 0.10
+                    ovf2 = model(images)
+                    model.noise_backbone = config.recovery.noise.act_inject.sigma + 0.15
+                    ovf3 = model(images)
+                    model.noise_backbone = config.recovery.noise.act_inject.sigma 
+                    loss = negative_feedback(output, labels, criterion,  [ovf1, ovf2, ovf3])
+                    # Backward pass
+                    optimizer.zero_grad()
+                    loss.backward()
+                else:
+                    output = model(images)
+                    loss = criterion(output, labels)
+                    # Backward pass
+                    optimizer.zero_grad()
+                    loss.backward()
 
             # Run training (backward propagation).
             if isinstance(noise_w, InjectWeightNoise):
