@@ -19,7 +19,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.accuracy_min = np.Inf
+        self.accuracy_min = np.inf
 
     def __call__(self, 
                  accuracy, 

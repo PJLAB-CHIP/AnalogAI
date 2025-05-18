@@ -10,15 +10,16 @@ training:
   lr: 0.001
   weight_decay: 0.0005
   momentum: 0.000000001
-  epochs: 1
+  epochs: 10
   warmup: 1000
   beta1: 0.9
   amsgrad: false
   eps: 0.00000001
   grad_clip: 1.0
+  use_fl: false
 
 recovery:
-  noise_0: 
+  noise: 
     act_inject:
       use: false
       type: "Gaussian" # "uniform"

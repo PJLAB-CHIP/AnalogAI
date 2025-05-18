@@ -143,10 +143,12 @@ def training_loop(model,
             noise_w = None
 
         model, optimizer, train_loss = train_step(train_data, 
+                                                  model,
                                                   model, 
                                                   criterion, 
                                                   optimizer, 
-                                                  device, 
+                                                  device,
+                                                  config,
                                                   noise_a,
                                                   noise_w)
         train_losses.append(train_loss)
@@ -172,6 +174,7 @@ def training_loop(model,
         best_accuracy = early_stopping(accuracy, 
                                        model.state_dict(), 
                                        config.data.architecture,
+                                       0,
                                        epoch, 
                                        save_dir)
         if early_stopping.early_stop:
@@ -221,7 +224,7 @@ def main():
     dataset = load_dataset(data_dir, 
                            config.training.batch_size, 
                            config.data.dataset)
-    train_data, validation_data = dataset.load_images()
+    train_data, validation_data = dataset.load_images(config)
 
     #----Load the pytorch model------
     in_channels = 3 if config.data.dataset=='cifar10' else 1
