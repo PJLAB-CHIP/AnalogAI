@@ -312,7 +312,7 @@ def train_step(train_data,
                 loss.backward()
             
             else:
-                if config.training.use_FL: # use feedback loops
+                if config.training.use_fl: # use feedback loops
                     output = model(images)
                     model.noise_backbone = config.recovery.noise.act_inject.sigma + 0.05
                     ovf1 = model(images)

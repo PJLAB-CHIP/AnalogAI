@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from .sram_op import SramConv2d
 from .sram_op import SramLinear
 from .sram_op import apply_sram_error_to_attention, sram_einsum
-from model.model_set.vit import MultiHeadSelfAttention
+from model.vit import MultiHeadSelfAttention
 from torch import distributed
 from torch.nn import init
 from torch.nn.parameter import Parameter
@@ -132,7 +132,7 @@ def convert_to_sram_prepare(
     w_bits=8, 
     backend='SRAM', 
     parallelism=128,
-    error=4,
+    error=0.05,
     ):
     if not inplace:
         model = copy.deepcopy(model)

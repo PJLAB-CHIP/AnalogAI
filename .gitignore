@@ -1,0 +1,8 @@
+# 忽略 Python 编译文件
+*.pyc
+
+# 忽略 tar.gz 压缩包
+*.tar.gz
+
+# 忽略 __pycache__ 文件夹
+__pycache__/

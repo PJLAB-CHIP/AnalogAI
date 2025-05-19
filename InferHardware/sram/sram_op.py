@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Created on 2024.3.21
+from typing import Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -297,14 +298,15 @@ class AnalogSram2d(Function):
     SRAM Simulation Computing Platform for Error Modeling
     '''
     @staticmethod
-    def forward(ctx, output, K, C_in, C_out, groups=1, parallelism=64, error_range=0.01) -> torch.Any:
+    def forward(ctx, output, K, C_in, C_out, groups=1, parallelism=64, error_range=0.01) -> Any:
         col = K * C_in * C_out // groups
         # errors_per_output_element = math.ceil(col / parallelism)
         
         # Generate all random errors at once
         # total_error_shape = (errors_per_output_element,) + output.shape
 
-        total_errors = torch.normal(0, error_range*output, output.shape, device=output.device)
+        error_rates = torch.normal(0, error_range, output.shape, device=output.device)
+        total_errors = error_rates * output
         # total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
 
         # Round the errors to nearest integers
@@ -313,7 +315,7 @@ class AnalogSram2d(Function):
         # total_errors = total_errors.sum(dim=0)
 
         output += total_errors
-        total_errors=0
+        total_errors = 0
 
         return output
     
@@ -387,7 +389,7 @@ class AnalogSramLinear(Function):
     SRAM Simulation Computing Platform for Error Modeling
     '''
     @staticmethod
-    def forward(ctx, output, w_input, parallelism, error_range) -> torch.Any:
+    def forward(ctx, output, w_input, parallelism, error_range) -> Any:
         """
         Simulate SRAM-based 2D operations with error introduction.
 
@@ -413,7 +415,8 @@ class AnalogSramLinear(Function):
 
         # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
         # total_errors = torch.normal(0, error_range*output, total_error_shape, device=output.device)
-        total_errors = torch.normal(0, error_range*output, output.shape, device=output.device)
+        error_rates = torch.normal(0, error_range, output.shape, device=output.device)
+        total_errors = error_rates * output
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
@@ -593,8 +596,8 @@ def apply_sram_error_to_attention(module, sram_error_simulator, parallelism,
 class SRAMErrorSimulator(Function):
 
     @staticmethod
-    def forward(ctx: torch.Any, output, mac_dims, parallelism,
-                        error_range,) -> torch.Any:
+    def forward(ctx: Any, output, mac_dims, parallelism,
+                        error_range,) -> Any:
         errors_per_output_element = math.ceil(mac_dims / parallelism)
         # Generate all random errors at once
         total_error_shape = (errors_per_output_element,) + output.shape
@@ -612,7 +615,7 @@ class SRAMErrorSimulator(Function):
         return output
 
     @staticmethod
-    def backward(ctx: torch.Any, grad_outputs: torch.Any) -> torch.Any:
+    def backward(ctx: Any, grad_outputs: Any) -> Any:
         """
         Backward pass for the SRAM simulation.
 

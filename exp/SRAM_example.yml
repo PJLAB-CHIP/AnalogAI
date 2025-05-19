@@ -20,7 +20,7 @@ training:
 
 recovery:
   sram:
-    use: false
+    use: true
     error_rate: 0.05
     parallelism: 128
   noise: 
@@ -42,7 +42,7 @@ recovery:
       level: 0.1
 
   optimizer: 
-    sam: True
+    sam: False
     adaptive: false # ASAM
   adversarial: 
     FGSM: 

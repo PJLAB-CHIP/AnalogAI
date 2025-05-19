@@ -31,6 +31,7 @@ from recovery.noise_aware.noise_inject import InjectForward, InjectWeight, Injec
 from recovery.qat.fake_quantize import fake_quantize_prepare
 from utils.utils import test_evaluation, train_step, create_optimizer
 from utils.earlystopping import EarlyStopping
+from InferHardware.sram.convert_sram import convert_to_sram_prepare
 
 # from call_inference import infer_memtorch, infer_aihwkit, infer_MNSIM
 # from call_inference import infer_aihwkit, infer_MNSIM
@@ -231,8 +232,8 @@ def main():
 
     model = select_model(config, in_channels)
 
-    if torch.cuda.device_count() > 1:
-        model = nn.DataParallel(model)     
+    # if torch.cuda.device_count() > 1:
+    #     model = nn.DataParallel(model)     
     model.to(device)
     
     optimizer = create_optimizer(model, 
@@ -253,6 +254,13 @@ def main():
     print(f"\n{datetime.now().time().replace(microsecond=0)} --- " f"Started Training")
 
     # wandb.init(project="AnalogAI", config=config)
+    
+    if config.recovery.sram.use:
+        model = convert_to_sram_prepare(model=model, 
+                                        device=device,
+                                        backend='SRAM', 
+                                        parallelism=int(config.recovery.sram.parallelism),
+                                        error=config.recovery.sram.error_rate,)
 
     model, optimizer = training_loop(model, 
                                      criterion, 
