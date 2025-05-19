@@ -235,7 +235,14 @@ def main():
     # if torch.cuda.device_count() > 1:
     #     model = nn.DataParallel(model)     
     model.to(device)
-    
+
+    if config.recovery.sram.use:
+        model = convert_to_sram_prepare(model=model, 
+                                        device=device,
+                                        backend='SRAM', 
+                                        parallelism=int(config.recovery.sram.parallelism),
+                                        error=config.recovery.sram.error_rate,)
+
     optimizer = create_optimizer(model, 
                                  config.training.lr, 
                                  config.training.momentum, 
