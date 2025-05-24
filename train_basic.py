@@ -23,7 +23,7 @@ from torch import max as torch_max
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
-from model import resnet, vgg, lenet, mlp
+from model import resnet, vgg, lenet, mlp, vit
 # Imports from utils.
 from data.dataset import load_dataset
 # Imports from networks.
@@ -212,6 +212,12 @@ def select_model(config, in_channels):
             model = MLPQ(in_channels)
         else:
             model = mlp.MLP(in_channels)
+    elif config.data.architecture == 'vit':
+        if config.recovery.qat.use:
+            pass
+        else:
+            model = vit.ViT(in_c=in_channels, 
+                            num_classes=10)
     return model
 
 
