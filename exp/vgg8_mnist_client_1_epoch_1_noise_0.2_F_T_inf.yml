@@ -120,10 +120,10 @@ recovery:
 inference:
   platform:
     sram:
-      use: false
+      use: true
       intensity: 200
     aihwkit:
-      use: True
+      use: false
       n_w: 0.02
     memtorch:
       use: false

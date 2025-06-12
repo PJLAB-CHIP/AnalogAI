@@ -1,6 +1,6 @@
 data:
   project_name: "AnalogAI"
-  architecture: "resnet18"
+  architecture: "mobilenet"
   dataset: "cifar10"
   n_classes: 10
   
@@ -8,7 +8,7 @@ training:
   optimizer: "Adam"
   batch_size: 64
   lr: 0.001
-  weight_decay: 0.0005
+  weight_decay: 0.0001
   momentum: 0.000000001
   epochs: 100
   warmup: 1000
@@ -20,8 +20,10 @@ training:
 
 recovery:
   sram:
-    use: false
-    error_rate: 0.05
+    use: true
+    load_fp_checkpoint: true
+    fp_checkpoint_path: "/root/my_project/AnalogAI/save_model/mobilenet/0_client_mobilenet_round_95_92.790000.pth.tar"
+    error_rate: 0.25
     parallelism: 128
   noise: 
     act_inject:
@@ -42,7 +44,7 @@ recovery:
       level: 0.1
 
   optimizer: 
-    sam: True
+    sam: false
     adaptive: false # ASAM
   adversarial: 
     FGSM: 
