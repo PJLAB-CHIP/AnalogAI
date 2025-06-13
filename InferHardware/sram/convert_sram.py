@@ -108,8 +108,7 @@ def convet_sram_op(module,
                 error)
             child.parallelism = parallelism
             child.error = error
-            # apply_sram_error_to_attention(child, sram_error_simulator, parallelism,
-            #             error)
+            apply_sram_error_to_attention(child, sram_error_simulator=True, parallelism=parallelism, error=error)
 
         else:
             convet_sram_op(

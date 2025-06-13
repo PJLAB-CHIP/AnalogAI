@@ -314,7 +314,7 @@ class AnalogSram2d(Function):
         # Sum up all errors and reshape to match the output shape
         # total_errors = total_errors.sum(dim=0)
 
-        output += total_errors
+        output = output + total_errors
         total_errors = 0
 
         return output
@@ -423,8 +423,8 @@ class AnalogSramLinear(Function):
         # Sum up all errors and reshape to match the output shape
         # total_errors = total_errors.sum(dim=0)
 
-        output += total_errors
-        total_errors=0
+        output = output + total_errors
+        total_errors = 0
 
         return output
     
@@ -498,9 +498,8 @@ class MultiHeadSelfAttention(nn.Module):
 
         self.o = nn.Linear(feats, feats)
         self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, sram_error_simulator=None, parallelism=128,
-                        error=4,):
+    
+    def forward(self, x, sram_error_simulator=None, parallelism=128, error=0.05):
         b, n, f = x.size()
         q = self.q(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
         k = self.k(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
@@ -584,11 +583,19 @@ def parse_einsum_equation_for_matrix_mul(equation, operands):
 def apply_sram_error_to_attention(module, sram_error_simulator, parallelism,
                         error,):
 
+    assert isinstance(module.q, SramLinear), "q is not SramLinear"
+    assert isinstance(module.k, SramLinear), "k is not SramLinear"
+    assert isinstance(module.v, SramLinear), "v is not SramLinear"
+    assert isinstance(module.o, SramLinear), "o is not SramLinear"
+    
     original_forward = module.forward
 
-    def forward_with_sram_error(x):
-        return original_forward(x, sram_error_simulator=sram_error_simulator, parallelism=parallelism,
-                        error=error,)
+    def forward_with_sram_error(x, *args, **kwargs):
+        # 只有在 kwargs 里没有这些参数时才加，防止重复
+        kwargs.setdefault('sram_error_simulator', sram_error_simulator)
+        kwargs.setdefault('parallelism', parallelism)
+        kwargs.setdefault('error', error)
+        return original_forward(x, *args, **kwargs)
     
     module.forward = forward_with_sram_error
 
@@ -602,15 +609,16 @@ class SRAMErrorSimulator(Function):
         # Generate all random errors at once
         total_error_shape = (errors_per_output_element,) + output.shape
         # total_errors = torch.randint(-error_range, error_range + 1, total_error_shape, device=output.device).float()
-        total_errors = torch.normal(0, error_range, total_error_shape, device=output.device)
+        total_error_rates = torch.normal(0, error_range, total_error_shape, device=output.device)
+        total_errors = total_error_rates * output
 
         # Round the errors to nearest integers
         total_errors = torch.round(total_errors)
         # Sum up all errors and reshape to match the output shape
         total_errors = total_errors.sum(dim=0)
 
-        output += total_errors
-        total_errors=0
+        output = output + total_errors
+        total_errors = 0
 
         return output
 
