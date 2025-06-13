@@ -1,6 +1,6 @@
 data:
   project_name: "AnalogAI"
-  architecture: "resnet18"
+  architecture: "mobilenet"
   dataset: "cifar10"
   n_classes: 10
   
@@ -42,7 +42,7 @@ recovery:
       level: 0.1
 
   optimizer: 
-    sam: True
+    sam: false
     adaptive: false # ASAM
   adversarial: 
     FGSM: 
