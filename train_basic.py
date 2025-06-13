@@ -274,7 +274,7 @@ def main():
                                         device=device,
                                         backend='SRAM', 
                                         parallelism=int(config.recovery.sram.parallelism),
-                                        error=config.recovery.sram.error_rate,)
+                                        error=config.recovery.sram.intensity,)
 
     optimizer = create_optimizer(model, 
                                  config.training.lr, 

@@ -21,7 +21,7 @@ training:
 recovery:
   sram:
     use: false
-    error_rate: 0.05
+    intensity: 0.05
     parallelism: 128
   noise: 
     act_inject:
