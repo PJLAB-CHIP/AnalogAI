@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from InferHardware.sram.sram_op import MultiHeadSelfAttention
 
 class TransformerEncoder(nn.Module):
     def __init__(self, feats:int, mlp_hidden:int, head:int=8, dropout:float=0.):
@@ -24,30 +24,30 @@ class TransformerEncoder(nn.Module):
         return out
 
 
-class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, feats:int, head:int=8, dropout:float=0.):
-        super(MultiHeadSelfAttention, self).__init__()
-        self.head = head
-        self.feats = feats
-        self.sqrt_d = self.feats**0.5
+# class MultiHeadSelfAttention(nn.Module):
+#     def __init__(self, feats:int, head:int=8, dropout:float=0.):
+#         super(MultiHeadSelfAttention, self).__init__()
+#         self.head = head
+#         self.feats = feats
+#         self.sqrt_d = self.feats**0.5
 
-        self.q = nn.Linear(feats, feats)
-        self.k = nn.Linear(feats, feats)
-        self.v = nn.Linear(feats, feats)
+#         self.q = nn.Linear(feats, feats)
+#         self.k = nn.Linear(feats, feats)
+#         self.v = nn.Linear(feats, feats)
 
-        self.o = nn.Linear(feats, feats)
-        self.dropout = nn.Dropout(dropout)
+#         self.o = nn.Linear(feats, feats)
+#         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x):
-        b, n, f = x.size()
-        q = self.q(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
-        k = self.k(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
-        v = self.v(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+#     def forward(self, x):
+#         b, n, f = x.size()
+#         q = self.q(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+#         k = self.k(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
+#         v = self.v(x).view(b, n, self.head, self.feats//self.head).transpose(1,2)
 
-        score = F.softmax(torch.einsum("bhif, bhjf->bhij", q, k)/self.sqrt_d, dim=-1) #(b,h,n,n)
-        attn = torch.einsum("bhij, bhjf->bihf", score, v) #(b,n,h,f//h)
-        o = self.dropout(self.o(attn.flatten(2)))
-        return o
+#         score = F.softmax(torch.einsum("bhif, bhjf->bhij", q, k)/self.sqrt_d, dim=-1) #(b,h,n,n)
+#         attn = torch.einsum("bhij, bhjf->bihf", score, v) #(b,n,h,f//h)
+#         o = self.dropout(self.o(attn.flatten(2)))
+#         return o
 
 class ViT(nn.Module):
     def __init__(self, in_c:int=3, num_classes:int=10, img_size:int=32, patch:int=8, dropout:float=0., num_layers:int=7, hidden:int=384, mlp_hidden:int=384*4, head:int=16, is_cls_token:bool=True):
