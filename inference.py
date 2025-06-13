@@ -24,9 +24,9 @@ from torch import nn, device, no_grad, save
 from torch import max as torch_max
 # Imports from networks.
 
-from model import resnet, vgg, lenet, mlp
+from model import resnet, vgg, lenet, mlp,mobilenetv2,vit
 # Imports from utils.
-from final.AnalogAI.data.dataset import load_dataset
+from data.dataset import load_dataset
 # from AnalogSram.sram_op import convert_to_sram_prepare
 from InferHardware.sram.convert_sram import convert_to_sram_prepare
 from InferHardware.ibm_aihwkit import infer_aihwkit
@@ -112,13 +112,36 @@ else:
     }
 
 # Training parameters
+# random_seed = 2024
+# np.random.seed(random_seed)
+# torch.manual_seed(random_seed)
+# if torch.cuda.device_count() > 1:
+#     torch.cuda.manual_seed_all(random_seed)
+# else:
+#     torch.cuda.manual_seed(random_seed)
+
+
 random_seed = 2024
+
+import random
+import numpy as np
+import torch
+
+# 设置 NumPy / Python / PyTorch 随机种子
 np.random.seed(random_seed)
+random.seed(random_seed)
 torch.manual_seed(random_seed)
 if torch.cuda.device_count() > 1:
     torch.cuda.manual_seed_all(random_seed)
 else:
     torch.cuda.manual_seed(random_seed)
+
+# 设置 cuDNN 为确定性行为，防止非确定性卷积等
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+# 强制使用确定性算法（若调用了非确定性操作会报错提示）
+torch.use_deterministic_algorithms(True)
 
 
 def test_evaluation(validation_data, model, criterion, device):
@@ -186,10 +209,20 @@ def select_model(config,state='client'):
         if config.data.dataset == 'mnist':
             model = resnet.resnet18(in_channels=1)
         elif config.data.dataset == 'cifar10':
-            model = resnet.resnet18(in_channels=3)
+            model = resnet.resnet18(in_channels=3) #####
+    elif config.data.architecture == 'mobilenet':
+        if config.data.dataset == 'mnist':
+            model = mobilenetv2.MobileNetV2(num_classes=10)
+        elif config.data.dataset == 'cifar10':
+            model = mobilenetv2.MobileNetV2(num_classes=10)
+    elif config.data.architecture == 'vit':
+        if config.data.dataset == 'mnist':
+            model = vit.ViT(in_c=1, num_classes= 10, img_size=32, patch=4, dropout=0.1, num_layers=6, hidden=192, head=3, mlp_hidden=768, is_cls_token=True)
+        elif config.data.dataset == 'cifar10':
+            model = vit.ViT(in_c=3, num_classes= 10, img_size=32, patch=16, dropout=0.0, num_layers=7, hidden=384, head=12, mlp_hidden=384, is_cls_token=False)
+
     return model
-
-
+ 
 
 def main():
     """Infer a PyTorch CNN analog model with dataset (eg. CIFAR10)."""
@@ -205,16 +238,46 @@ def main():
 
     model.to(device)   
     criterion = nn.CrossEntropyLoss().cuda()
+    
+    
     #----load existing model---------
-    print('save_dir:', save_dir)
-    best_model = get_best_model(save_dir=save_dir)
-    print('best_model:', best_model)
-    if os.path.exists(os.path.join(save_dir, best_model)):
-        print('==> loading existing model')
-        model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
-    else:
-        model.load_state_dict(torch.load('../save_model/checkpoint.pth.tar'))
+    # print('save_dir:', save_dir)
+    # best_model = get_best_model(save_dir=save_dir)
+    # print('best_model:', best_model)
+    # if os.path.exists(os.path.join(save_dir, best_model)):
+    #     print('==> loading existing model')
+    #     model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
+    # else:
+    #     model.load_state_dict(torch.load('/root/my_project/AnalogAI/save_model/resnet18/0_client_resnet18_round_98_93.330000.pth.tar'))
+    
+    #resnet浮点模型
+    # path = "/root/my_project/AnalogAI/save_model/basic/resnet18/0_client_resnet18_round_98_93.330000.pth.tar"
+    # mobilenet
+    # path = "/root/my_project/AnalogAI/save_model/basic/mobilenet/0_client_mobilenet_round_85_92.190000.pth.tar"
+    # vit
+    # path = "/root/my_project/AnalogAI/save_model/basic/vit/0_client_vit_round_85_80.520000.pth.tar"
+    
+    #resnet精度恢复训练后模型
+    path = "/root/my_project/AnalogAI/save_model/fp_based_sram/resnet18/0_client_resnet18_round_95_92.200000.pth.tar"
+    #mobilenet精度恢复训练后模型
+    # path = "/root/my_project/AnalogAI/save_model/mobilenet/0_client_mobilenet_round_97_91.520000.pth.tar"
+    # path = "/root/my_project/AnalogAI/save_model/mobilenet/0_client_mobilenet_round_80_87.560000.pth.tar"
+    #vit精度恢复训练后模型
+    # path = "/root/my_project/AnalogAI/save_model/vit_noscrach/0_client_vit_round_110_79.860000.pth.tar"
+    state_dict = torch.load(path, map_location=device)
 
+    # 若包含 model_state_dict 字段
+    if 'model_state_dict' in state_dict:
+        state_dict = state_dict['model_state_dict']
+
+    # 过滤掉所有包含 activation_quantizer 或 weight_quantizer 的键
+    filtered_dict = {
+        k: v for k, v in state_dict.items()
+        if 'activation_quantizer' not in k and 'weight_quantizer' not in k and 'range_tracker' not in k
+    }
+
+    # 加载到非量化 ViT 模型
+    model.load_state_dict(filtered_dict, strict=False)
     """(test): aggregate"""
     # submodel_folder = os.listdir(save_dir)
     # submodel_list = []
@@ -249,15 +312,15 @@ def main():
     # infer
     if config.inference.platform.sram.use:
         print("==> inferencing on SRAM") 
-        ps = [16, 32, 64, 128]
-        es = np.linspace(0, 0.05, num=6, endpoint=True)
+        ps = [32]#, 32, 64, 128
+        es = np.linspace(0.25, 0.25, num=6, endpoint=True)
         for p in ps:
             for e in es: 
                 infer_model_sram = convert_to_sram_prepare(model=model, 
                                                       device=device,
                                                       backend='SRAM', 
                                                       parallelism=int(p),
-                                                      error=int(e),)
+                                                      error=e,)
                 _, _, error, accuracy = test_evaluation(
                                 validation_data, infer_model_sram, criterion, device
                             )

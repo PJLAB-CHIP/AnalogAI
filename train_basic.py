@@ -23,7 +23,7 @@ from torch import max as torch_max
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 # Imports from networks.
-from model import resnet, vgg, lenet, mlp
+from model import resnet, vgg, lenet, mlp, mobilenetv2,vit
 # Imports from utils.
 from data.dataset import load_dataset
 # Imports from networks.
@@ -77,16 +77,41 @@ save_dir = './save_model/' + config.data.architecture
 model_path = config.data.architecture + '.pth'
 save_path = os.path.join(save_dir, model_path)
 
-# Training parameters
+# # Training parameters
+# random_seed = 2024
+# np.random.seed(random_seed)
+# torch.manual_seed(random_seed)
+# if torch.cuda.device_count() > 1:
+#     torch.cuda.manual_seed_all(random_seed)
+# else:
+#     torch.cuda.manual_seed(random_seed)
+# # initialize the early_stopping object
+    
+# early_stopping = EarlyStopping(patience=20, verbose=True)
+
 random_seed = 2024
+
+import random
+import numpy as np
+import torch
+
+# 设置 NumPy / Python / PyTorch 随机种子
 np.random.seed(random_seed)
+random.seed(random_seed)
 torch.manual_seed(random_seed)
 if torch.cuda.device_count() > 1:
     torch.cuda.manual_seed_all(random_seed)
 else:
     torch.cuda.manual_seed(random_seed)
+
+# 设置 cuDNN 为确定性行为，防止非确定性卷积等
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+# 强制使用确定性算法（若调用了非确定性操作会报错提示）
+torch.use_deterministic_algorithms(True)
+
 # initialize the early_stopping object
-    
 early_stopping = EarlyStopping(patience=20, verbose=True)
 
 
@@ -188,30 +213,27 @@ def training_loop(model,
     return model, optimizer
 
 def select_model(config, in_channels):
-    if config.data.architecture == 'vgg8':
-        if config.recovery.qat.use:
-            from model.vggQ import VGGQ
-            model = VGGQ('VGG8', in_channels)
-        else:
-            model = vgg.vgg8(in_channels=in_channels, num_classes=10)
-    elif config.data.architecture == 'resnet18':
+    if config.data.architecture == 'resnet18':
         if config.recovery.qat.use:
             from model.resnetQ import ResNet18Q
             model = ResNet18Q(in_channels)
         else:
+            # import pdb;pdb.set_trace()
             model = resnet.resnet18(in_channels)
-    elif config.data.architecture == 'lenet':
+    elif config.data.architecture == 'mobilenet':
         if config.recovery.qat.use:
-            from model.lenetQ import LeNetQ
-            model = LeNetQ(in_channels)
+            from model.mobilenetv2Q import MobileNetV2Q
+            model = MobileNetV2Q(num_classes=10)
         else:
-            model = lenet.LeNet(in_channels)
-    elif config.data.architecture == 'mlp':
+            model = mobilenetv2.MobileNetV2(num_classes=10)
+    elif config.data.architecture == 'vit':
         if config.recovery.qat.use:
-            from model.mlpQ import MLPQ
-            model = MLPQ(in_channels)
+            from model.vitQ import vitQ
+            model = vitQ(in_c=in_channels, num_classes= 10, img_size=32, patch=16, dropout=0.1, 
+                         num_layers=7, hidden=384, head=12, mlp_hidden=384, is_cls_token=False)
         else:
-            model = mlp.MLP(in_channels)
+            model = vit.ViT(in_c=in_channels, num_classes= 10, img_size=32, patch=16, dropout=0.0, 
+                            num_layers=7, hidden=384, head=12, mlp_hidden=384, is_cls_token=False)
     return model
 
 
@@ -235,6 +257,17 @@ def main():
     # if torch.cuda.device_count() > 1:
     #     model = nn.DataParallel(model)     
     model.to(device)
+    
+    if config.recovery.sram.use and config.recovery.sram.load_fp_checkpoint:
+        ckpt_path = config.recovery.sram.fp_checkpoint_path
+        print(f"[INFO] Loading pretrained float model from {ckpt_path}")
+        checkpoint = torch.load(ckpt_path, map_location=device)
+        print(f"[DEBUG] checkpoint keys: {checkpoint.keys()}")
+        model.load_state_dict(checkpoint, strict=True)
+        # print("[DEBUG] conv1.weight norm =", model.conv1.weight.data.norm().item())
+        # ckpt = torch.load(ckpt_path)
+        # print("float checkpoint conv1 norm =", ckpt['conv1.weight'].norm())
+    
 
     if config.recovery.sram.use:
         model = convert_to_sram_prepare(model=model, 
@@ -253,8 +286,8 @@ def main():
 
     pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                       factor=0.5,
-                                                      patience=10,
-                                                      verbose=True)
+                                                      patience=10# verbose=True
+                                                     )
         
     criterion = nn.CrossEntropyLoss()
 
@@ -262,12 +295,12 @@ def main():
 
     # wandb.init(project="AnalogAI", config=config)
     
-    if config.recovery.sram.use:
-        model = convert_to_sram_prepare(model=model, 
-                                        device=device,
-                                        backend='SRAM', 
-                                        parallelism=int(config.recovery.sram.parallelism),
-                                        error=config.recovery.sram.error_rate,)
+    # if config.recovery.sram.use:
+    #     model = convert_to_sram_prepare(model=model, 
+    #                                     device=device,
+    #                                     backend='SRAM', 
+    #                                     parallelism=int(config.recovery.sram.parallelism),
+    #                                     error=config.recovery.sram.error_rate,)
 
     model, optimizer = training_loop(model, 
                                      criterion, 
@@ -286,3 +319,7 @@ def main():
 if __name__ == "__main__":
     # Execute only if run as the entry point into the program
     main()
+
+
+
+
