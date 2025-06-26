@@ -240,30 +240,7 @@ def main():
     criterion = nn.CrossEntropyLoss().cuda()
     
     
-    #----load existing model---------
-    # print('save_dir:', save_dir)
-    # best_model = get_best_model(save_dir=save_dir)
-    # print('best_model:', best_model)
-    # if os.path.exists(os.path.join(save_dir, best_model)):
-    #     print('==> loading existing model')
-    #     model.load_state_dict(torch.load(os.path.join(save_dir, best_model)))   
-    # else:
-    #     model.load_state_dict(torch.load('/root/my_project/AnalogAI/save_model/resnet18/0_client_resnet18_round_98_93.330000.pth.tar'))
-    
-    #resnet浮点模型
-    # path = "/root/my_project/AnalogAI/save_model/basic/resnet18/0_client_resnet18_round_98_93.330000.pth.tar"
-    # mobilenet
-    # path = "/root/my_project/AnalogAI/save_model/basic/mobilenet/0_client_mobilenet_round_85_92.190000.pth.tar"
-    # vit
-    # path = "/root/my_project/AnalogAI/save_model/basic/vit/0_client_vit_round_85_80.520000.pth.tar"
-    
-    #resnet精度恢复训练后模型
-    path = "/root/my_project/AnalogAI/save_model/fp_based_sram/resnet18/0_client_resnet18_round_95_92.200000.pth.tar"
-    #mobilenet精度恢复训练后模型
-    # path = "/root/my_project/AnalogAI/save_model/mobilenet/0_client_mobilenet_round_97_91.520000.pth.tar"
-    # path = "/root/my_project/AnalogAI/save_model/mobilenet/0_client_mobilenet_round_80_87.560000.pth.tar"
-    #vit精度恢复训练后模型
-    # path = "/root/my_project/AnalogAI/save_model/vit_noscrach/0_client_vit_round_110_79.860000.pth.tar"
+    path = config.inference.path
     state_dict = torch.load(path, map_location=device)
 
     # 若包含 model_state_dict 字段
@@ -313,7 +290,7 @@ def main():
     if config.inference.platform.sram.use:
         print("==> inferencing on SRAM") 
         ps = [32]#, 32, 64, 128
-        es = np.linspace(0.25, 0.25, num=6, endpoint=True)
+        es = np.linspace(0, 0.25, num=6, endpoint=True)
         for p in ps:
             for e in es: 
                 infer_model_sram = convert_to_sram_prepare(model=model, 
