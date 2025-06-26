@@ -14,7 +14,7 @@ inference:
       n_w: 0.02
     memtorch:
       use: false
-  path:  "save_model/vit_noscrach/0_client_vit_round_110_79.860000.pth.tar"
+  path:  "save_model/fp_based_sram/vit_sram/0_client_vit_round_110_79.860000.pth.tar"
     
 training: 
   optimizer: "Adam"
