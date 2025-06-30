@@ -290,7 +290,7 @@ def main():
     if config.inference.platform.sram.use:
         print("==> inferencing on SRAM") 
         ps = [32]#, 32, 64, 128
-        es = np.linspace(0, 0.25, num=6, endpoint=True)
+        es = np.linspace(0, 0.25, num=2, endpoint=True)
         for p in ps:
             for e in es: 
                 infer_model_sram = convert_to_sram_prepare(model=model, 
@@ -302,7 +302,7 @@ def main():
                                 validation_data, infer_model_sram, criterion, device
                             )
                 result_dict[f'SRAM_{p}_{e}'] = accuracy
-                print(f'error:{error:.2f}' + f'accuracy:{accuracy:.2f}' + f' parallelism:{p:.4f}' + f' error:{e:.4f}')
+                print(f'SRAM noise intensity : {e:.2f}, accuracy: {accuracy:.2f}')
                 # wandb.log({'parallelis_sram':p, 'error_sram':e, 'accuracy_sram':accuracy})
 
     if config.inference.platform.aihwkit.use:
