@@ -14,7 +14,7 @@ inference:
       n_w: 0.02
     memtorch:
       use: false  
-  path:  "save_model/basic/mobilenet/0_client_mobilenet_round_85_92.190000.pth.tar"
+  path:  "save_model/basic/mobilenet/0_client_mobilenet_round_95_92.790000.pth.tar
     
 training: 
   optimizer: "Adam"

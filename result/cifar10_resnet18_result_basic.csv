@@ -1,0 +1,3 @@
+Name,Model,Dataset,SRAM_32_0.0,SRAM_32_0.25
+inf_resnet18_basic.yml,resnet18,cifar10,93.32000000000001,87.67
+inf_resnet18_sram.yml,resnet18,cifar10,93.49,91.58
