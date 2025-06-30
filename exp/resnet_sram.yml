@@ -22,7 +22,7 @@ recovery:
   sram:
     use: true
     load_fp_checkpoint: true
-    fp_checkpoint_path: "/root/my_project/AnalogAI/save_model/basic/resnet18/0_client_resnet18_round_98_93.330000.pth.tar"
+    fp_checkpoint_path: "./save_model/basic/resnet18/0_client_resnet18_round_98_93.330000.pth.tar"
     intensity: 0.25
     parallelism: 128
   noise: 
