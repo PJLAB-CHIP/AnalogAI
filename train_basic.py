@@ -11,7 +11,7 @@ script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
 os.chdir(script_dir)
 # os.environ['WANDB_API_KEY'] = 'e7a84490fccf4d551013cad7ca58549bb09594f7'
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 from datetime import datetime
 from tqdm import tqdm
 # import timm
@@ -73,7 +73,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 data_dir = os.path.join(os.getcwd(), "data", config.data.dataset)
 
 # Path to store results
-save_dir = './save_model/' + config.data.architecture
+if config.recovery.sram.use:
+    save_dir = './save_model/' + config.data.architecture + '_sram'
+else:
+    save_dir = './save_model/' + config.data.architecture + '_base'
 model_path = config.data.architecture + '.pth'
 save_path = os.path.join(save_dir, model_path)
 
